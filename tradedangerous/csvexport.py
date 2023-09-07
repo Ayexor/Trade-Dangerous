@@ -86,12 +86,15 @@ def buildFKeyStmt(conn, tableName, key):
             for row in newStmt:
                 keyStmt.append(row)
         else:
-            keyStmt.append({
-                'table': tableName,
-                'column': colName,
-                'joinTable': key['table'],
-                'joinColumn': key['to']
-            })
+            # The Item table has two unique keys, so this kind of linking fails
+            # (why do we link unique keys instead of foreign keys do begin with???)
+            if not (tableName == "StationItem" and colName == "fdev_id"):
+                keyStmt.append({
+                    'table': tableName,
+                    'column': colName,
+                    'joinTable': key['table'],
+                    'joinColumn': key['to']
+                })
     
     return keyStmt
 
