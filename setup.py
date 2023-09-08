@@ -54,11 +54,12 @@ setup(name = package,
         ],
         license = "MPL",
         test_suite = "tests",
-        package_data = {"tradedangerous": ["templates/TradeDangerous.sql", "templates/Added.csv", "templates/RareItem.csv", "templates/DefaultShipIndex.json"]},
+        package_data = {"tradedangerous": ["templates/TradeDangerous.sql", "templates/Added.csv", "templates/Category.csv", "templates/DefaultShipIndex.json"]},
         entry_points = {
             "console_scripts": [
                 "trade=tradedangerous.trade:main",
-                "tradegui=tradedangerous.tradegui:main"
+                "tradegui=tradedangerous.tradegui:main",
+                "eddn_connector=tradedangerous.eddn_connector:main", 
             ]
         },
         zip_safe = False

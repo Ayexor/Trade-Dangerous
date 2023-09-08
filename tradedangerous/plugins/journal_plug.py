@@ -247,23 +247,23 @@ class ImportPlugin(ImportPluginBase):
                             stnName = event["StationName"]
                             jrnStation = JournalStation(modified=stnDate)
                             jrnStation.lsFromStar = int(event.get("DistFromStarLS", 0) + 0.5)
-                            stnType = event.get("StationType", None)
+                            stnType = [x.upper() for x in event.get("StationType", None)]
                             if stnType:
                                 # conclusions from the stationtype
                                 jrnStation.planetary = "Y" if stnType.upper() in self.planetTypeList else "N"
-                                jrnStation.maxPadSize = "M" if stnType.startswith("Outpost") else "L"
+                                jrnStation.maxPadSize = "M" if stnType.startswith("OUTPOST") else "L"
                                 jrnStation.fleet = "Y" if stnType.upper() == "FLEETCARRIER" else "N"
                                 jrnStation.odyssey = "Y" if stnType.upper() in self.odysseyTypeList else "N"
-                            stnServices = event.get("StationServices", None)
+                            stnServices = [x.lower() for x in event.get("StationServices", None)]
                             if stnServices:
                                 # station services since ED update 2.4
-                                jrnStation.blackMarket = getYNfromService(stnServices, 'BlackMarket')
-                                jrnStation.market = getYNfromService(stnServices, 'Commodities')
-                                jrnStation.shipyard = getYNfromService(stnServices, 'Shipyard')
-                                jrnStation.outfitting = getYNfromService(stnServices, 'Outfitting')
-                                jrnStation.rearm = getYNfromService(stnServices, 'Rearm')
-                                jrnStation.refuel = getYNfromService(stnServices, 'Refuel')
-                                jrnStation.repair = getYNfromService(stnServices, 'Repair')
+                                jrnStation.blackMarket = getYNfromService(stnServices, 'blackmarket')
+                                jrnStation.market = getYNfromService(stnServices, 'commodities')
+                                jrnStation.shipyard = getYNfromService(stnServices, 'shipyard')
+                                jrnStation.outfitting = getYNfromService(stnServices, 'outfitting')
+                                jrnStation.rearm = getYNfromService(stnServices, 'rearm')
+                                jrnStation.refuel = getYNfromService(stnServices, 'refuel')
+                                jrnStation.repair = getYNfromService(stnServices, 'repair')
                             tdenv.DEBUG0(
                                 " STATION: {} {}/{} {}",
                                 stnDate, sysName, stnName, str(jrnStation)

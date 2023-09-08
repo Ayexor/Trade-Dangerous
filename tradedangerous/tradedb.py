@@ -499,11 +499,11 @@ class Item(object):
     """
     __slots__ = ('ID', 'dbname', 'category', 'fullname', 'avgPrice', 'fdevID')
     
-    def __init__(self, ID, dbname, category, fullname, avgPrice=None, fdevID=None):
+    def __init__(self, ID, dbname, category, fullname=None, avgPrice=None, fdevID=None):
         self.ID = ID
         self.dbname = dbname
         self.category = category
-        self.fullname = fullname
+        self.fullname = fullname or dbname
         self.avgPrice = avgPrice
         self.fdevID   = fdevID
     
@@ -647,7 +647,7 @@ class TradeDB(object):
         self.csvPath = fs.ensurefolder(tdenv.csvDir)
         
         fs.copy_if_newer((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
-        fs.copy_if_newer((self.templatePath / Path("RareItem.csv")), (self.csvPath / Path("RareItem.csv")))
+        fs.copy_if_newer((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
         fs.copy_if_newer((self.templatePath / Path("TradeDangerous.sql")), (self.dataPath / Path("TradeDangerous.sql")))
         
         self.dbPath = Path(tdenv.dbFilename or dataPath / TradeDB.defaultDB)
@@ -871,9 +871,8 @@ class TradeDB(object):
         Updates an entry for a local system.
         """
         oldname = system.dbname
-        dbname = name.upper()
         if not force:
-            if oldname == dbname and \
+            if oldname.lower() == name.lower() and \
                     system.posX == x and \
                     system.posY == y and \
                     system.posZ == z:
@@ -888,7 +887,7 @@ class TradeDB(object):
                    modified=DATETIME(?)
              WHERE system_id = ?
         """, [
-            dbname, x, y, z, added, modified,
+            name, x, y, z, added, modified,
             system.ID,
         ])
         if commit:
@@ -897,11 +896,11 @@ class TradeDB(object):
             "{} (#{}) updated in {}: {}, {}, {}, {}, {}, {}",
             oldname, system.ID,
             self.dbPath if self.tdenv.detail > 1 else "local db",
-            dbname,
+            name,
             x, y, z,
             added, modified,
         )
-        self.systemByName[dbname] = system
+        self.systemByName[name] = system
         
         return True
     
@@ -1928,6 +1927,33 @@ class TradeDB(object):
             len(self.itemByID)
         )
     
+    def addLocalItem(
+            self,
+            name,
+            category=None
+            ):
+        """
+        Add a new item to the local cache and memory copy
+        TODO: Add support for missing values: category_id, ui_order, avg_price, fdev_id
+        """
+        if not category:
+            category = self.categoryByID[15] # Unknown
+        db = self.getDB()
+        cur = db.cursor()
+        cur.execute("""
+                INSERT INTO Item (
+                    name,
+                    category_id
+                ) VALUES (
+                    ?, ?
+                )
+        """, [name, category.ID])
+        ID = cur.lastrowid
+        item = Item(ID, name, category,'{}/{}'.format(category.dbname, name))
+        self.itemByName[item.dbname] = item
+        self.itemByID[item.ID] = ID
+        #TODO: Add self.itemByFDevID
+        
     def lookupItem(self, name):
         """
             Look up an Item by name using "CATEGORY/Item"

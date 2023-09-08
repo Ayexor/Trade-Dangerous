@@ -199,7 +199,7 @@ CREATE TABLE Item
    fdev_id INTEGER,
 
    UNIQUE (item_id),
-   UNIQUE (fdev_id),
+   --UNIQUE (fdev_id), --Removed because adding missing items from market data not possible when fdev_id unknown
 
    FOREIGN KEY (category_id) REFERENCES Category(category_id)
     ON UPDATE CASCADE
