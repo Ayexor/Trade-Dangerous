@@ -25,14 +25,16 @@ class JournalStation(object):
         'lsFromStar', 'blackMarket', 'maxPadSize',
         'market', 'shipyard', 'outfitting',
         'rearm', 'refuel', 'repair',
-        'planetary', 'modified'
+        'planetary', 'modified',
+        "fleet", "odyssey"
     )
     
     def __init__(
         self, lsFromStar=0, blackMarket='?', maxPadSize='?',
         market='?', shipyard='?', outfitting='?',
         rearm='?', refuel='?', repair='?',
-        planetary='?', modified='now'
+        planetary='?', modified='now',
+        fleet='?', odyssey='?'
     ):
         self.lsFromStar = lsFromStar
         self.blackMarket = blackMarket
@@ -45,12 +47,15 @@ class JournalStation(object):
         self.repair = repair
         self.planetary = planetary
         self.modified = modified
+        self.fleet = fleet
+        self.odyssey = odyssey
     
     def __str__(self):
-        return "{}ls Pad:{} Mkt:{} Blk:{} Shp:{} Out:{} Arm:{} Ref:{} Rep:{} Plt:{}".format(
+        return "{}ls Pad:{} Mkt:{} Blk:{} Shp:{} Out:{} Arm:{} Ref:{} Rep:{} Plt:{} Flc:{} Ody:{}".format(
             self.lsFromStar, self.maxPadSize, self.market,
             self.blackMarket, self.shipyard, self.outfitting,
-            self.rearm, self.refuel, self.repair, self.planetary
+            self.rearm, self.refuel, self.repair, self.planetary,
+            self.fleet, self.odyssey
         )
 
 class ImportPlugin(ImportPluginBase):
@@ -83,10 +88,19 @@ class ImportPlugin(ImportPluginBase):
     stnList = {}
     blkList = []
     
+    spaceTypeList = (
+        "BERNAL",
+        "CORIOLIS",
+        "OCELLUS",
+        "ORBIS"
+    )
     planetTypeList = (
         "SURFACESTATION",
         "CRATERPORT",
         "CRATEROUTPOST",
+    )
+    odysseyTypeList = (
+        "ONFOOTSETTLEMENT"
     )
     
     def __init__(self, tdb, tdenv):
@@ -238,6 +252,8 @@ class ImportPlugin(ImportPluginBase):
                                 # conclusions from the stationtype
                                 jrnStation.planetary = "Y" if stnType.upper() in self.planetTypeList else "N"
                                 jrnStation.maxPadSize = "M" if stnType.startswith("Outpost") else "L"
+                                jrnStation.fleet = "Y" if stnType.upper() == "FLEETCARRIER" else "N"
+                                jrnStation.odyssey = "Y" if stnType.upper() in self.odysseyTypeList else "N"
                             stnServices = event.get("StationServices", None)
                             if stnServices:
                                 # station services since ED update 2.4
@@ -450,6 +466,8 @@ class ImportPlugin(ImportPluginBase):
                             planetary=jrnStation.planetary,
                             modified=utcDate,
                             commit=False,
+                            fleet=jrnStation.fleet,
+                            odyssey=jrnStation.odyssey
                         )
                         addCount += 1
                 else:
