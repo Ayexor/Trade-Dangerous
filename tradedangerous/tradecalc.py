@@ -283,8 +283,8 @@ class Route(object):
             footer = '  ' + '-' * 76 + "\n"
             endFmt = (
                 "Finish at "
-                +colorize("blue", "{station} ") + 
-                "gaining {gain:n}cr ({tongain:n}cr/ton) "
+                +colorize("blue", "{station}") + 
+                "\n => gaining {gain:n}cr ({tongain:n}cr/ton) "
                 "=> est {credits:n}cr total\n"
             )
         elif detail:
