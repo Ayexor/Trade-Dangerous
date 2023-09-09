@@ -254,9 +254,9 @@ class System(object):
             Station() object if a match is found,
             otherwise None.
         """
-        upperName = stationName.upper()
+        stationName = TradeDB.normalizedStr(stationName)
         for station in self.stations:
-            if station.dbname.upper() == upperName:
+            if station.dbname == stationName:
                 return station
         return None
     
@@ -480,7 +480,7 @@ class Category(namedtuple('Category', (
     """
     
     def name(self, detail=0):
-        return self.dbname.upper()
+        return self.dbname
 
 ######################################################################
 
@@ -804,7 +804,7 @@ class TradeDB(object):
         with closing(self.getDB().execute(stmt)) as cur:
             for (ID, name, posX, posY, posZ, addedID) in cur:
                 system = System(ID, name, posX, posY, posZ, addedID)
-                systemByID[ID] = systemByName[name.upper()] = system
+                systemByID[ID] = systemByName[name] = system
         
         self.systemByID, self.systemByName = systemByID, systemByName
         self.tdenv.DEBUG1("Loaded {:n} Systems", len(systemByID))
@@ -836,7 +836,7 @@ class TradeDB(object):
         """
         Add a system to the local cache and memory copy.
         """
-        
+        name = self.normalizedStr(name)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
@@ -851,7 +851,7 @@ class TradeDB(object):
             name, x, y, z, added, modified,
         ])
         ID = cur.lastrowid
-        system = System(ID, name.upper(), x, y, z, 0)
+        system = System(ID, name, x, y, z, 0)
         self.systemByID[ID] = system
         self.systemByName[system.dbname] = system
         if commit:
@@ -873,9 +873,10 @@ class TradeDB(object):
         """
         Updates an entry for a local system.
         """
+        name = self.normalizedStr(name)
         oldname = system.dbname
         if not force:
-            if oldname.lower() == name.lower() and \
+            if oldname == name and \
                     system.posX == x and \
                     system.posY == y and \
                     system.posZ == z:
@@ -1368,6 +1369,7 @@ class TradeDB(object):
         """
         Alter the properties of a station in-memory and in the DB.
         """
+        name = self.normalizedStr(name)
         changes = []
         
         def _changed(label, old, new):
@@ -1376,7 +1378,7 @@ class TradeDB(object):
             )
         
         if name is not None:
-            if force or name.upper() != station.dbname.upper():
+            if force or name != station.dbname:
                 _changed("name", station.dbname, name)
                 station.dbname = name
         
@@ -1389,7 +1391,7 @@ class TradeDB(object):
         
         def _check_setting(label, name, newValue, allowed):
             if newValue is not None:
-                newValue = newValue.upper()
+                newValue = self.normalizedStr(newValue)
                 assert newValue in allowed
                 oldValue = getattr(station, name, '?')
                 if newValue != oldValue and (force or newValue != '?'):
@@ -1513,23 +1515,24 @@ class TradeDB(object):
         if isinstance(name, System) or isinstance(name, Station):
             return name
         
+        name = self.normalizedStr(name)
         slashPos = name.find('/')
         if slashPos < 0:
             slashPos = name.find('\\')
         nameOff = 1 if name.startswith('@') else 0
         if slashPos > nameOff:
             # Slash indicates it's, e.g., AULIN/ENTERPRISE
-            sysName = name[nameOff:slashPos].upper()
+            sysName = name[nameOff:slashPos]
             stnName = name[slashPos+1:]
         elif slashPos == nameOff:
             sysName, stnName = None, name[nameOff+1:]
         elif nameOff:
             # It's explicitly a station
-            sysName, stnName = name[nameOff:].upper(), None
+            sysName, stnName = name[nameOff:], None
         else:
             # It could be either, use the name for both.
             stnName = name[nameOff:]
-            sysName = stnName.upper()
+            sysName = stnName
         
         exactMatch = []
         closeMatch = []

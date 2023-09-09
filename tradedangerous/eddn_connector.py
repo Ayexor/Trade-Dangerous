@@ -267,7 +267,9 @@ def main():
             )
         else:
             tdb.addLocalStation(
-                system=system,name=stationName,lsFromStar=lsFromStar,
+                system=system,
+                name=stationName,
+                lsFromStar=lsFromStar,
                 market=market,
                 blackMarket=blackmarket,
                 shipyard=shipyard,
