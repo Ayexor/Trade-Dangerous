@@ -359,9 +359,15 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         
         # ## Change current station
         stationItemDates = {}
+        processedItems = {} # Items that were processed within one station
+
         systemNameIn, stationNameIn = matches.group(1, 2)
+        systemNameIn, stationNameIn = systemNameIn.strip(), stationNameIn.strip()
         systemName, stationName = normalizedStr(systemNameIn), normalizedStr(stationNameIn)
-        systemID = systemByName.get(systemName, -1)
+        systemID = systemByName.get(systemName, None)
+        if not systemID:
+            ignoreOrWarn(UnknownSystemError(priceFile, lineNo, systemName))
+            return
         facility = "/".join((systemName, stationName))
         
         # Make sure it's valid.
@@ -370,9 +376,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         
         if newID < 0:
             if not ignoreUnknown:
-                ignoreOrWarn(
-                        UnknownStationError(priceFile, lineNo, facility)
-                )
+                ignoreOrWarn(UnknownStationError(priceFile, lineNo, facility))
                 return
             inscur = db.cursor()
             inscur.execute("""
@@ -401,7 +405,6 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         stationID = newID
         processedSystems.add(systemName)
         processedStations[stationID] = lineNo
-        processedItems = {}
         
         cur = db.execute("""
             SELECT item_id, modified
@@ -432,30 +435,25 @@ def processPrices(tdenv, priceFile, db, defaultZero):
             itemByName[itemName]=itemID
             
             if not itemID == getItemID(itemName, -1):
-                ignoreOrWarn(
-                    CreateItemError(priceFile, lineNo, itemName, itemID)
-                )
+                ignoreOrWarn(CreateItemError(
+                    priceFile, lineNo, itemName, itemID
+                ))
                 return
         
         lastModified = stationItemDates.get(itemID, None)
         if lastModified and merging:
             if modified and modified != 'now' and modified <= lastModified:
                 DEBUG1("Ignoring {} @ {}: {} <= {}".format(
-                    itemName, facility,
-                    modified, lastModified,
+                    itemName, facility,modified, lastModified,
                 ))
                 ignItems += 1
                 return
         
         # Check for duplicate items within the station.
         if itemID in processedItems:
-            ignoreOrWarn(
-                MultipleItemEntriesError(
-                    priceFile, lineNo,
-                    "{}".format(itemName),
-                    processedItems[itemID]
-                )
-            )
+            ignoreOrWarn(MultipleItemEntriesError(
+                priceFile, lineNo,"{}".format(itemName),processedItems[itemID]
+            ))
             return
         
         demandCr, supplyCr = matches.group('sell', 'buy')
@@ -522,16 +520,12 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         if text.startswith('@'):
             matches = systemStationRe.match(text)
             if not matches:
-                raise SyntaxError("Unrecognized '@' line: {}".format(
-                            text
-                        ))
+                raise SyntaxError("Unrecognized '@' line: {}".format(text))
             changeStation(matches)
             continue
         
         if not stationID:
-            # Need a station to process any other type of line.
-            raise SyntaxError(priceFile, lineNo,
-                                "Expecting '@ SYSTEM / Station' line", text)
+            continue
         
         ########################################
         # ## "+ Category" lines
@@ -543,8 +537,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         # ## "Item sell buy ..." lines.
         matches = newItemPriceRe.match(text)
         if not matches:
-            raise SyntaxError(priceFile, lineNo,
-                        "Unrecognized line/syntax", text)
+            raise SyntaxError(priceFile, lineNo,"Unrecognized line/syntax", text)
         
         processItemLine(matches, db)
     
