@@ -134,7 +134,7 @@ class System(object):
     
     __slots__ = (
         'ID',
-        'dbname', 'posX', 'posY', 'posZ', 'pos', 'stations',
+        'dbname', 'prettyName', 'posX', 'posY', 'posZ', 'pos', 'stations',
         'addedID',
         '_rangeCache'
     )
@@ -148,12 +148,13 @@ class System(object):
             self.probedLy = 0.
     
     def __init__(
-            self, ID, dbname, posX, posY, posZ, addedID,
+            self, ID, dbname, prettyName, posX, posY, posZ, addedID,
             ary=numpy.array,
             nptype=numpy.float32,
             ):
         self.ID = ID
         self.dbname = dbname
+        self.prettyName = prettyName
         self.posX, self.posY, self.posZ = posX, posY, posZ
         if ary:
             self.pos = ary([posX, posY, posZ], nptype)
@@ -247,7 +248,7 @@ class System(object):
         return None
     
     def name(self, detail=0):
-        return self.dbname
+        return self.prettyName
     
     def str(self):
         return self.dbname
@@ -272,19 +273,19 @@ class Station(object):
         TradeCalc.getTrades        (fast and cheap)
     """
     __slots__ = (
-        'ID', 'system', 'dbname',
+        'ID', 'system', 'dbname', 'prettyName',
         'lsFromStar', 'market', 'blackMarket', 'shipyard', 'maxPadSize',
         'outfitting', 'rearm', 'refuel', 'repair', 'planetary','fleet',
         'odyssey', 'itemCount', 'dataAge',
     )
     
     def __init__(
-            self, ID, system, dbname,
+            self, ID, system, dbname, prettyName,
             lsFromStar, market, blackMarket, shipyard, maxPadSize,
             outfitting, rearm, refuel, repair, planetary, fleet, odyssey,
             itemCount=0, dataAge=None,
             ):
-        self.ID, self.system, self.dbname = ID, system, dbname
+        self.ID, self.system, self.dbname, self.prettyName = ID, system, dbname, prettyName
         self.lsFromStar = int(lsFromStar)
         self.market = market if itemCount == 0 else 'Y'
         self.blackMarket = blackMarket
@@ -302,7 +303,10 @@ class Station(object):
         system.stations = system.stations + (self,)
     
     def name(self, detail=0):
-        return '%s/%s' % (self.system.dbname, self.dbname)
+        return self.prettyName
+    
+    def fullName(self, detail=0):
+        return '%s / %s' % (self.system.prettyName, self.prettyName)
     
     def checkPadSize(self, maxPadSize):
         """
@@ -483,18 +487,19 @@ class Item(object):
         avgPrice -- Galactic average as shown in game.
         fdevID   -- FDevID as provided by the companion API.
     """
-    __slots__ = ('ID', 'dbname', 'category', 'fullname', 'avgPrice', 'fdevID')
+    __slots__ = ('ID', 'dbname', 'prettyName', 'category', 'avgPrice', 'fdevID')
     
-    def __init__(self, ID, dbname, category, fullname=None, avgPrice=None, fdevID=None):
+    def __init__(self, ID, dbname, prettyName, category, avgPrice=None, fdevID=None):
         self.ID = ID
         self.dbname = dbname
+        self.prettyName = prettyName
         self.category = category
-        self.fullname = fullname or dbname
         self.avgPrice = avgPrice
         self.fdevID   = fdevID
     
     def name(self, detail=0):
-        return self.fullname if detail > 0 else self.dbname
+        return self.prettyName
+
 
 ######################################################################
 
@@ -787,15 +792,15 @@ class TradeDB(object):
         """
         stmt = """
                 SELECT system_id,
-                       name, pos_x, pos_y, pos_z,
+                       name, pretty_name, pos_x, pos_y, pos_z,
                        added_id
                   FROM System
             """
         
         systemByID, systemByName = {}, {}
         with closing(self.getDB().execute(stmt)) as cur:
-            for (ID, name, posX, posY, posZ, addedID) in cur:
-                system = System(ID, name, posX, posY, posZ, addedID)
+            for (ID, name, prettyName, posX, posY, posZ, addedID) in cur:
+                system = System(ID, name, prettyName, posX, posY, posZ, addedID)
                 systemByID[ID] = systemByName[name] = system
         
         self.systemByID, self.systemByName = systemByID, systemByName
@@ -819,7 +824,7 @@ class TradeDB(object):
     
     def addLocalSystem(
             self,
-            name,
+            prettyName,
             x, y, z,
             added="Local",
             modified='now',
@@ -828,29 +833,29 @@ class TradeDB(object):
         """
         Add a system to the local cache and memory copy.
         """
-        name = self.normalizedStr(name)
+        name = self.normalizedStr(prettyName)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
                 INSERT INTO System (
-                    name, pos_x, pos_y, pos_z, added_id, modified
+                    name, pretty_name, pos_x, pos_y, pos_z, added_id, modified
                 ) VALUES (
-                    ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?,
                     (SELECT added_id FROM Added WHERE name = ?),
                     DATETIME(?)
                 )
         """, [
-            name, x, y, z, added, modified,
+            name, prettyName, x, y, z, added, modified,
         ])
         ID = cur.lastrowid
-        system = System(ID, name, x, y, z, 0)
+        system = System(ID, name, prettyName, x, y, z, 0)
         self.systemByID[ID] = system
         self.systemByName[system.dbname] = system
         if commit:
             db.commit()
         self.tdenv.NOTE(
-            "Added new system #{}: {} [{},{},{}]",
-            ID, name, x, y, z
+            "Added new system #{}: {} ({}) [{},{},{}]",
+            ID, name, prettyName, x, y, z
         )
         # Invalidate the grid
         self.stellarGrid = None
@@ -858,32 +863,30 @@ class TradeDB(object):
     
     def updateLocalSystem(
             self, system,
-            name, x, y, z, added="Local", modified='now',
+            prettyName, x, y, z, added="Local", modified='now',
             force=False,
             commit=True,
             ):
         """
         Updates an entry for a local system.
         """
-        name = self.normalizedStr(name)
-        oldname = system.dbname
+        oldname = system.prettyName
         if not force:
-            if oldname == name and \
+            if oldname == prettyName and \
                     system.posX == x and \
                     system.posY == y and \
                     system.posZ == z:
                 return False
-        del self.systemByName[oldname]
         db = self.getDB()
         db.execute("""
             UPDATE System
-               SET name=?,
+               SET prettyName=?,
                    pos_x=?, pos_y=?, pos_z=?,
                    added_id=(SELECT added_id FROM Added WHERE name = ?),
                    modified=DATETIME(?)
              WHERE system_id = ?
         """, [
-            name, x, y, z, added, modified,
+            prettyName, x, y, z, added, modified,
             system.ID,
         ])
         if commit:
@@ -892,11 +895,8 @@ class TradeDB(object):
             "{} (#{}) updated in {}: {}, {}, {}, {}, {}, {}",
             oldname, system.ID,
             self.dbPath if self.tdenv.detail > 1 else "local db",
-            name,
-            x, y, z,
-            added, modified,
+            prettyName, x, y, z, added, modified,
         )
-        self.systemByName[name] = system
         
         return True
     
@@ -1186,7 +1186,7 @@ class TradeDB(object):
         CAUTION: Will orphan previously loaded objects.
         """
         stmt = """
-            SELECT  station_id, system_id, name,
+            SELECT  station_id, system_id, name, pretty_name,
                     ls_from_star, market, blackmarket, shipyard,
                     max_pad_size, outfitting, rearm, refuel, repair, planetary, type_id
               FROM  Station
@@ -1201,14 +1201,14 @@ class TradeDB(object):
         types = {'fleet-carrier':[24,],'odyssey':[25,],}
         with closing(self.query(stmt)) as cur:
             for (
-                ID, systemID, name,
+                ID, systemID, name, prettyName,
                 lsFromStar, market, blackMarket, shipyard,
                 maxPadSize, outfitting, rearm, refuel, repair, planetary, type_id
             ) in cur :
                 isFleet = 'Y' if int(type_id) in types['fleet-carrier'] else 'N'
                 isOdyssey = 'Y' if int(type_id) in types['odyssey'] else 'N'
                 station = Station(
-                    ID, systemByID[systemID], name,
+                    ID, systemByID[systemID], name, prettyName,
                     lsFromStar, market, blackMarket, shipyard,
                     maxPadSize, outfitting, rearm, refuel, repair, planetary, isFleet, isOdyssey,
                     0, None,
@@ -1239,7 +1239,7 @@ class TradeDB(object):
     def addLocalStation(
             self,
             system,
-            name,
+            prettyName,
             lsFromStar,
             market,
             blackMarket,
@@ -1258,7 +1258,7 @@ class TradeDB(object):
         """
         Add a station to the local cache and memory copy.
         """
-        
+        name = self.normalizedStr(prettyName)
         market = market.upper()
         blackMarket = blackMarket.upper()
         shipyard = shipyard.upper()
@@ -1290,25 +1290,25 @@ class TradeDB(object):
         cur = db.cursor()
         cur.execute("""
             INSERT INTO Station (
-                name, system_id,
+                name, pretty_name, system_id,
                 ls_from_star, market, blackmarket, shipyard, max_pad_size,
                 outfitting, rearm, refuel, repair, planetary, type_id,
-                modified
+                modified, fleet, odyssey
             ) VALUES (
-                ?, ?,
+                ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?,
-                DATETIME(?)
+                DATETIME(?), ?, ?
             )
         """, [
-            name, system.ID,
+            name, prettyName, system.ID,
             lsFromStar, market, blackMarket, shipyard, maxPadSize,
             outfitting, rearm, refuel, repair, planetary, type_id,
-            modified,
+            modified, fleet, odyssey
         ])
         ID = cur.lastrowid
         station = Station(
-            ID, system, name,
+            ID, system, name, prettyName,
             lsFromStar=lsFromStar,
             market=market,
             blackMarket=blackMarket,
@@ -1319,8 +1319,8 @@ class TradeDB(object):
             refuel=refuel,
             repair=repair,
             planetary=planetary,
-            fleet='?',
-            odyssey='?',
+            fleet=fleet,
+            odyssey=odyssey,
             itemCount=0, dataAge=0,
         )
         self.stationByID[ID] = station
@@ -1361,7 +1361,6 @@ class TradeDB(object):
         """
         Alter the properties of a station in-memory and in the DB.
         """
-        name = self.normalizedStr(name)
         changes = []
         
         def _changed(label, old, new):
@@ -1370,6 +1369,7 @@ class TradeDB(object):
             )
         
         if name is not None:
+            name = self.normalizedStr(name)
             if force or name != station.dbname:
                 _changed("name", station.dbname, name)
                 station.dbname = name
@@ -1655,7 +1655,7 @@ class TradeDB(object):
         if exactOnly:
             stationID=-1
             for row in self.query("SELECT station_id FROM Station WHERE name = '{}'".format(name)):
-                stationID = row
+                stationID = row[0]
             return self.stationByID.get(stationID, None)
         if isinstance(name, Station):
             return name
@@ -1903,16 +1903,15 @@ class TradeDB(object):
         CAUTION: Will orphan previously loaded objects.
         """
         stmt = """
-            SELECT item_id, name, category_id, avg_price, fdev_id
+            SELECT item_id, name, pretty_name, category_id, avg_price, fdev_id
               FROM Item
         """
         itemByID, itemByName, itemByFDevID = {}, {}, {}
         with closing(self.query(stmt)) as cur:
-            for ID, name, categoryID, avgPrice, fdevID in cur:
+            for ID, name, prettyName, categoryID, avgPrice, fdevID in cur:
                 category = self.categoryByID[categoryID]
                 item = Item(
-                    ID, name, category,
-                    '{}/{}'.format(category.dbname, name),
+                    ID, name, prettyName, category,
                     avgPrice, fdevID
                 )
                 itemByID[ID] = item
@@ -1933,7 +1932,7 @@ class TradeDB(object):
     
     def addLocalItem(
             self,
-            name,
+            prettyName,
             category=None
             ):
         """
@@ -1942,19 +1941,18 @@ class TradeDB(object):
         """
         if not category:
             category = self.categoryByID[15] # Unknown
-        name = self.normalizedStr(name)
+        name = self.normalizedStr(prettyName)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
                 INSERT INTO Item (
-                    name,
-                    category_id
+                    name, pretty_name, category_id
                 ) VALUES (
-                    ?, ?
+                    ?, ?, ?
                 )
-        """, [name, category.ID])
+        """, [name, prettyName, category.ID])
         ID = cur.lastrowid
-        item = Item(ID, name, category,'{}/{}'.format(category.dbname, name))
+        item = Item(ID, name, prettyName, category)
         self.itemByName[item.dbname] = item
         self.itemByID[item.ID] = ID
         #TODO: Add self.itemByFDevID

@@ -44,6 +44,7 @@ CREATE TABLE System
  (
    system_id INTEGER PRIMARY KEY,
    name VARCHAR(40) COLLATE nocase,
+   pretty_name VARCHAR(40),
    pos_x DOUBLE NOT NULL,
    pos_y DOUBLE NOT NULL,
    pos_z DOUBLE NOT NULL,
@@ -63,6 +64,7 @@ CREATE TABLE Station
  (
    station_id INTEGER PRIMARY KEY,
    name VARCHAR(40) COLLATE nocase,
+   pretty_name VARCHAR(40),
    system_id INTEGER NOT NULL,
    ls_from_star INTEGER NOT NULL DEFAULT 0
        CHECK (ls_from_star >= 0),
@@ -86,6 +88,10 @@ CREATE TABLE Station
    planetary  TEXT(1) NOT NULL DEFAULT '?'
        CHECK (planetary  IN ('?', 'Y', 'N')),
    type_id INTEGER DEFAULT 0 NOT NULL,
+   fleet  TEXT(1) NOT NULL DEFAULT '?'
+       CHECK (fleet  IN ('?', 'Y', 'N')),
+   odyssey  TEXT(1) NOT NULL DEFAULT '?'
+       CHECK (odyssey  IN ('?', 'Y', 'N')),
 
    UNIQUE (station_id),
 
@@ -193,6 +199,7 @@ CREATE TABLE Item
  (
    item_id INTEGER PRIMARY KEY,
    name VARCHAR(40) COLLATE nocase,
+   pretty_name VARCHAR(40),
    category_id INTEGER NOT NULL,
    ui_order INTEGER NOT NULL DEFAULT 0,
    avg_price INTEGER,

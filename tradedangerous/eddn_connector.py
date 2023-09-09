@@ -242,9 +242,9 @@ def main():
         sysNew=sysUpdate=False
         system = tdb.lookupSystem(systemName, exactOnly=True)
         if system:
-            sysUpdate = tdb.updateLocalSystem(system=system,name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
+            sysUpdate = tdb.updateLocalSystem(system=system,prettyName=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
         else:
-            tdb.addLocalSystem(name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
+            tdb.addLocalSystem(prettyName=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
             system = tdb.lookupSystem(systemName, exactOnly=True)
             sysNew=True
         
@@ -269,7 +269,7 @@ def main():
         else:
             tdb.addLocalStation(
                 system=system,
-                name=stationName,
+                prettyName=stationName,
                 lsFromStar=lsFromStar,
                 market=market,
                 blackMarket=blackmarket,
@@ -285,17 +285,18 @@ def main():
                 modified=timestamp,
                 commit=True
             )
+            station = tdb.lookupStation(name=stationName, system=system, exactOnly=True)
             statNew=True
         
         if sysNew or statNew:
             echoLog("Created {}{} / {}{}.".format(
-                systemName,
+                system.name(),
                 " (new)" if sysNew else "",
-                stationName,
+                station.name(),
                 " (new)" if statNew else ""
                 ))
         if sysUpdate or statUpdate:
-            echoLog("Updated {} / {}.".format(systemName, stationName))
+            echoLog("Updated {} / {}.".format(system.name(), station.name()))
 
     global exitGracefully
     while not exitGracefully:
