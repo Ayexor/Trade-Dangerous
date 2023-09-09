@@ -1963,19 +1963,14 @@ class TradeDB(object):
         try: 
             return self.itemByName[name]
         except KeyError:
-            pass
-        try:
-            item = TradeDB.listSearch(
-                "Item", name, self.itemByName.items(),
-                key=lambda kvTup: kvTup[0],
-                val=lambda kvTup: kvTup[1]
-            )
-        except LookupError as err:
             if createNonExisting:
                 self.addLocalItem(name)
                 return self.itemByName[name]
-            else:
-                raise err
+        item = TradeDB.listSearch(
+        "Item", name, self.itemByName.items(),
+            key=lambda kvTup: kvTup[0],
+            val=lambda kvTup: kvTup[1]
+            )
     
     def getAverageSelling(self):
         """

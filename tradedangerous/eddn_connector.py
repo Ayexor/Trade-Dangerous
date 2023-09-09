@@ -242,7 +242,7 @@ def main():
         try:
             system = tdb.lookupSystem(systemName)
             sysUpdate = tdb.updateLocalSystem(system=system,name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
-        except LookupError:
+        except (LookupError, tradedb.AmbiguityError):
             tdb.addLocalSystem(name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
             system = tdb.lookupSystem(systemName)
             sysNew=True
