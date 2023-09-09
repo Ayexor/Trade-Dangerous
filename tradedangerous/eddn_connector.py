@@ -239,17 +239,17 @@ def main():
             timestamp = date('%Y-%m-%d %H:%M:%S')
         
         sysNew=sysUpdate=False
-        try:
-            system = tdb.lookupSystem(systemName)
+        system = tdb.lookupSystem(systemName, exactOnly=True)
+        if system:
             sysUpdate = tdb.updateLocalSystem(system=system,name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
-        except (LookupError, tradedb.AmbiguityError):
+        else:
             tdb.addLocalSystem(name=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
-            system = tdb.lookupSystem(systemName)
+            system = tdb.lookupSystem(systemName, exactOnly=True)
             sysNew=True
         
         statNew=statUpdate=False
-        try:
-            station = tdb.lookupStation(stationName, system)
+        station = tdb.lookupStation(stationName, system, exactOnly=True)
+        if station:
             statUpdate = tdb.updateLocalStation(
                 station=station,
                 lsFromStar=None,
@@ -265,7 +265,7 @@ def main():
                 fleet=fleet,
                 odyssey=odyssey
             )
-        except LookupError:
+        else:
             tdb.addLocalStation(
                 system=system,name=stationName,lsFromStar=lsFromStar,
                 market=market,

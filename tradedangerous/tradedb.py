@@ -809,15 +809,18 @@ class TradeDB(object):
         self.systemByID, self.systemByName = systemByID, systemByName
         self.tdenv.DEBUG1("Loaded {:n} Systems", len(systemByID))
     
-    def lookupSystem(self, key):
+    def lookupSystem(self, key, exactOnly=False):
         """
         Look up a System object by it's name.
         """
+        key = self.normalizedStr(key)
         if isinstance(key, System):
             return key
         if isinstance(key, Station):
             return key.system
-        
+        if exactOnly:
+            return None
+
         return TradeDB.listSearch(
             "System", key, self.systems(), key=lambda system: system.dbname
         )
@@ -1649,12 +1652,15 @@ class TradeDB(object):
             key=lambda place: place.name()
         )
     
-    def lookupStation(self, name, system=None):
+    def lookupStation(self, name, system=None, exactOnly=False):
         """
         Look up a Station object by it's name or system.
         """
+        name = self.normalizedStr(name)
         if isinstance(name, Station):
             return name
+        if exactOnly:
+            return None
         if isinstance(name, System):
             # When given a system with only one station, return the station.
             if len(name.stations) != 1:
