@@ -22,14 +22,14 @@
 
 from collections import namedtuple
 from pathlib import Path
-from .tradeexcept import TradeException
-from . import tradedb
+from tradedangerous.tradeexcept import TradeException
+import tradedangerous.tradedb
+import tradedangerous.corrections, tradedangerous.utils
+import tradedangerous.prices
 
-from . import corrections, utils
 import csv
 import math
 import os
-from . import prices
 import re
 import sqlite3
 import sys
@@ -586,7 +586,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         if text.startswith('@'):
             matches = systemStationRe.match(text)
             if not matches:
-                raise SyntaxError("Unrecognized '@' line: {}".format(# pylint: disable=no-value-for-parameter
+                raise SyntaxError("Unrecognized '@' line: {}".format(
                             text
                         ))
             changeStation(matches)

@@ -51,36 +51,23 @@ Simplistic use might be:
 # Imports
 
 
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from pathlib import Path
-from .tradeenv import TradeEnv
-from .tradeexcept import TradeException
+from tradedangerous.tradeenv import TradeEnv
+from tradedangerous.tradeexcept import TradeException
+#import tradedangerous.cache
 
-from . import cache, fs
 from contextlib import closing
 import heapq
 import itertools
 import locale
-import math
-import os
 import re
 import sqlite3
 import sys
-
-haveNumpy = False
-try:
-    import numpy
-    import numpy.linalg
-    haveNumpy = True
-except (KeyError, ImportError):
-    pass
-if not haveNumpy:
-    class numpy(object):
-        array = False
-        float32 = False
-        ascontiguousarray = False
-        class linalg(object):
-            norm = False
+import os
+import shutil
+import numpy
+import numpy.linalg
 
 locale.setlocale(locale.LC_ALL, '')
 
@@ -232,18 +219,17 @@ class System(object):
             (self.posZ - other.posZ) ** 2
         ) ** 0.5  # fast sqrt
     
-    if haveNumpy:
-        def all_distances(
-                self, iterable,
-                ary=numpy.ascontiguousarray, norm=numpy.linalg.norm,
-                ):
-            """
-            Takes a list of systems and returns their distances from this system.
-            """
-            return numpy.linalg.norm(
-                ary([s.pos for s in iterable]) - self.pos,
-                ord=2, axis=1.
-            )
+    def all_distances(
+            self, iterable,
+            ary=numpy.ascontiguousarray, norm=numpy.linalg.norm,
+            ):
+        """
+        Takes a list of systems and returns their distances from this system.
+        """
+        return numpy.linalg.norm(
+            ary([s.pos for s in iterable]) - self.pos,
+            ord=2, axis=1.
+        )
     
     def getStation(self, stationName):
         """
@@ -643,12 +629,18 @@ class TradeDB(object):
         self.tdenv = tdenv
         
         self.templatePath = Path(tdenv.templateDir).resolve()
-        self.dataPath = dataPath = fs.ensurefolder(tdenv.dataDir)
-        self.csvPath = fs.ensurefolder(tdenv.csvDir)
+        self.dataPath = dataPath = Path(tdenv.dataDir).resolve()
+        self.csvPath = Path(tdenv.csvDir).resolve()
+        self.dataPath.mkdir(parents=True, exist_ok=True)
+        self.csvPath.mkdir(parents=True, exist_ok=True)
+
+        def copy_if_not_exists(src, targ):
+            if not os.path.exists(targ):
+                shutil.copyfile(src, targ)
         
-        fs.copy_if_newer((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
-        fs.copy_if_newer((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
-        fs.copy_if_newer((self.templatePath / Path("TradeDangerous.sql")), (self.dataPath / Path("TradeDangerous.sql")))
+        copy_if_not_exists((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
+        copy_if_not_exists((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
+        copy_if_not_exists((self.templatePath / Path("TradeDangerous.sql")), (self.dataPath / Path("TradeDangerous.sql")))
         
         self.dbPath = Path(tdenv.dbFilename or dataPath / TradeDB.defaultDB)
         self.sqlPath = dataPath / Path(tdenv.sqlFilename or TradeDB.defaultSQL)

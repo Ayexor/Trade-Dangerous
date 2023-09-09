@@ -6,7 +6,8 @@ import zmq
 import simplejson
 import sys, os, datetime, time
 import signal
-from tradedangerous import tradedb, tradeenv
+from tradedangerous.tradeenv import TradeEnv
+from tradedangerous.tradedb import TradeDB
 
 """
  "  Configuration
@@ -109,8 +110,8 @@ def main():
                     3: 'H'}
     
     # Get the TradeDB object only once per runtime
-    tdenv = tradeenv.TradeEnv(quiet=1)
-    tdb = tradedb.TradeDB(tdenv)
+    tdenv = TradeEnv(quiet=1)
+    tdb = TradeDB(tdenv)
 
     context     = zmq.Context()
     subscriber  = context.socket(zmq.SUB)
