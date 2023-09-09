@@ -169,23 +169,18 @@ def main():
                 timestamp = date('%Y-%m-%d %H:%M:%S')
 
             for commodity in message['commodities']:
+                itemName = commodity['name']
                 try:
-                    item = tdb.itemByName[commodity['name'].upper()]
-                except KeyError:
-                    try:
-                        item = tdb.lookupItem(commodity['name'])
-                    except LookupError:
-                        tdb.addLocalItem(commodity['name'])
-                        echoLog("Added new item: " + commodity['name'])
-                        item = tdb.lookupItem(commodity['name'])
-                    except tradedb.AmbiguityError as err:
-                        echoLog("Failing item: " + err.__str__())
-                        return
+                    item = tdb.lookupItem(itemName)
+                except (LookupError, tradedb.AmbiguityError):
+                    tdb.addLocalItem(itemName)
+                    echoLog("Added new item: " + itemName)
+                    item = tdb.lookupItem(itemName)
                 
                 items.append((
                 station.ID, item.ID, timestamp,
-                commodity['buyPrice'], commodity['demand'], commodity['demandBracket'],
-                commodity['sellPrice'], commodity['stock'], commodity['stockBracket']
+                commodity['buyPrice'], commodity['demand'], commodity['demandBracket'] or -1,
+                commodity['sellPrice'], commodity['stock'], commodity['stockBracket'] or -1
             ))
             
             tdb.getDB().executemany("""

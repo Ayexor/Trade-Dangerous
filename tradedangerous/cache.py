@@ -23,6 +23,7 @@
 from collections import namedtuple
 from pathlib import Path
 from .tradeexcept import TradeException
+from . import tradedb
 
 from . import corrections, utils
 import csv
@@ -151,6 +152,18 @@ class UnknownItemError(BuildCacheBaseException):
     
     def __init__(self, fromFile, lineNo, itemName):
         error = 'Unrecognized item name: "{}"'.format(itemName)
+        super().__init__(fromFile, lineNo, error)
+
+class CreateItemError(BuildCacheBaseException):
+    """
+    Raised if creating an item failed
+    Attributes:
+        itemName   Key we tried to look up.
+        itemID     The ID we wanted to assign
+    """
+    
+    def __init__(self, fromFile, lineNo, itemName, itemID):
+        error = 'Failed creting item: "{}", ID: {}'.format(itemName, itemID)
         super().__init__(fromFile, lineNo, error)
 
 
@@ -457,24 +470,32 @@ def processPrices(tdenv, priceFile, db, defaultZero):
     getItemID = itemByName.get
     newItems, updtItems, ignItems = 0, 0, 0
     
-    def processItemLine(matches):
+    def processItemLine(matches, db):
         nonlocal newItems, updtItems, ignItems
         itemName, modified = matches.group('item', 'time')
-        itemName = itemName.upper()
+        itemName = tradedb.TradeDB.normalizedStr(itemName)
         
         # Look up the item ID.
         itemID = getItemID(itemName, -1)
         if itemID < 0:
             oldName = itemName
             itemName = corrections.correctItem(itemName)
+            itemName = tradedb.TradeDB.normalizedStr(itemName)
             if itemName == DELETED:
                 DEBUG1("DELETED {}", oldName)
                 return
-            itemName = itemName.upper()
-            itemID = getItemID(itemName, -1)
-            if itemID < 0:
+            cur = db.cursor()
+            cur.execute(
+                "INSERT INTO Item (name, category_id) VALUES(?, ?)",
+                [itemName, 15] # 15 is category "Unknown"
+                )
+            db.commit()
+            itemID = cur.lastrowid
+            itemByName[itemName]=itemID
+            
+            if not itemID == getItemID(itemName, -1):
                 ignoreOrWarn(
-                    UnknownItemError(priceFile, lineNo, itemName)
+                    CreateItemError(priceFile, lineNo, itemName, itemID)
                 )
                 return
             DEBUG1("Renamed {} -> {}", oldName, itemName)
@@ -486,8 +507,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
                     itemName, facility,
                     modified, lastModified,
                 ))
-                if modified < lastModified:
-                    ignItems += 1
+                ignItems += 1
                 return
         
         # Check for duplicate items within the station.
@@ -592,7 +612,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
             raise SyntaxError(priceFile, lineNo,
                         "Unrecognized line/syntax", text)
         
-        processItemLine(matches)
+        processItemLine(matches, db)
     
     numSys = len(processedSystems)
     

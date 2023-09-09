@@ -1938,6 +1938,7 @@ class TradeDB(object):
         """
         if not category:
             category = self.categoryByID[15] # Unknown
+        name = self.normalizedStr(name)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
@@ -1954,15 +1955,27 @@ class TradeDB(object):
         self.itemByID[item.ID] = ID
         #TODO: Add self.itemByFDevID
         
-    def lookupItem(self, name):
+    def lookupItem(self, name, createNonExisting = False):
         """
             Look up an Item by name using "CATEGORY/Item"
         """
-        return TradeDB.listSearch(
-            "Item", name, self.itemByName.items(),
-            key=lambda kvTup: kvTup[0],
-            val=lambda kvTup: kvTup[1]
-        )
+        name = self.normalizedStr(name)
+        try: 
+            return self.itemByName[name]
+        except KeyError:
+            pass
+        try:
+            item = TradeDB.listSearch(
+                "Item", name, self.itemByName.items(),
+                key=lambda kvTup: kvTup[0],
+                val=lambda kvTup: kvTup[1]
+            )
+        except LookupError as err:
+            if createNonExisting:
+                self.addLocalItem(name)
+                return self.itemByName[name]
+            else:
+                raise err
     
     def getAverageSelling(self):
         """

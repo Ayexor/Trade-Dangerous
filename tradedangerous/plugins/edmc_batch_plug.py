@@ -134,3 +134,5 @@ class ImportPlugin(ImportPluginBase):
         self.set_environment(self.sanitize_files(file_list))
         return True
 
+    def finish(self):
+        return True

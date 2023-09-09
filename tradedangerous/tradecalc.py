@@ -270,7 +270,7 @@ class Route(object):
                 dockFmt = (
                     "  Unload at "
                     +colorize("lightBlue", "{station}") + 
-                    " => Gain {gain:n}cr "
+                    "\n    => Gain {gain:n}cr "
                     "({tongain:n}cr/ton) => {credits:n}cr\n"
                 )
             else:
