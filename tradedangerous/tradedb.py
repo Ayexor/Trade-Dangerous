@@ -1527,28 +1527,23 @@ class TradeDB(object):
         def lookup(name, candidates):
             """ Search candidates for the given name """
             
-            normTrans = TradeDB.normalizeTrans
-            trimTrans = TradeDB.trimTrans
-            
-            nameNorm = name.translate(normTrans)
-            nameTrimmed = nameNorm.translate(trimTrans)
+            nameNorm = normalizedStr(name)
             
             nameLen = len(name)
             nameNormLen = len(nameNorm)
-            nameTrimmedLen = len(nameTrimmed)
             
             for place in candidates:
-                placeName = place.dbname
-                placeNameNorm = placeName.translate(normTrans)
+                placeName = place.prettyName
+                placeNameNorm = normalizedStr(placeName)
                 placeNameNormLen = len(placeNameNorm)
                 
-                if nameTrimmedLen > placeNameNormLen:
+                if placeNameNormLen > placeNameNormLen:
                     # The needle is bigger than this haystack.
                     continue
                 
                 # If the lengths match, do a direct comparison.
                 if len(placeName) == nameLen:
-                    if placeNameNorm == nameNorm:
+                    if placeName == name:
                         exactMatch.append(place)
                     continue
                 if placeNameNormLen == nameNormLen:
@@ -1558,36 +1553,10 @@ class TradeDB(object):
                 
                 if nameNormLen < placeNameNormLen:
                     subPos = placeNameNorm.find(nameNorm)
-                    if subPos == 0:
-                        if placeNameNorm[nameNormLen] == ' ':
-                            # first word
-                            wordMatch.append(place)
-                        else:
-                            anyMatch.append(place)
+                    if subPos >= 0:
+                        anyMatch.append(place)
                         continue
-                    elif subPos > 0:
-                        if placeNameNorm[subPos] == ' ' and \
-                                placeNameNorm[subPos + nameNormLen] == ' ':
-                            wordMatch.append(place)
-                        else:
-                            anyMatch.append(place)
-                        continue
-                
-                # Lets drop whitespace and remaining punctuation...
-                placeNameTrimmed = placeNameNorm.translate(trimTrans)
-                placeNameTrimmedLen = len(placeNameTrimmed)
-                if placeNameTrimmedLen == placeNameNormLen:
-                    # No change
-                    continue
-                
-                # A match here is not exact but still fairly interesting
-                if len(placeNameTrimmed) == nameTrimmedLen:
-                    if placeNameTrimmed == nameTrimmed:
-                        closeMatch.append(place)
-                    continue
-                if placeNameTrimmed.find(nameTrimmed) >= 0:
-                    anyMatch.append(place)
-        
+                        
         if sysName:
             try:
                 sys = self.systemByName[sysName]

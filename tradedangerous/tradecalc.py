@@ -75,7 +75,7 @@ class BadTimestampError(TradeException):
             "Error loading price data from the local db:\n"
             "{} has a StationItem entry for \"{}\" with an invalid "
             "modified timestamp: '{}'.".format(
-                self.station.name(),
+                self.station.fullName(),
                 self.item.name(),
                 str(self.modified),
             )
@@ -344,8 +344,10 @@ class Route(object):
         
         if detail > 1:
             
-            def decorateStation(station):
+            def decorateStation(station, dist=None):
                 details = []
+                if dist:
+                    details.append("{:d} Ly".format(dist))
                 if station.lsFromStar:
                     details.append(station.distFromStar(True))
                 if station.blackMarket != '?':
@@ -365,21 +367,21 @@ class Route(object):
                 if station.refuel != '?':
                     details.append('Ref:' + station.refuel)
                 details = "{} ({})".format(
-                    station.name(),
+                    station.fullName(),
                     ", ".join(details or ["no details"])
                 )
                 return details
         
         else:
             
-            def decorateStation(station):
-                return station.name()
+            def decorateStation(station, dist = None):
+                return station.fullName() + (" ({:d} Ly)".format(dist) if dist else '')
         
         if detail and goalSystem:
             
             def goalDistance(station):
                 return " [Distance to {}: {:.2f} ly]\n".format(
-                    goalSystem.name(),
+                    goalSystem.fullName(),
                     station.system.distanceTo(goalSystem),
                 )
         
@@ -414,8 +416,10 @@ class Route(object):
                 )
                 hopTonnes += qty
             text += goalDistance(route[i])
+            if i > 0: dist = int(route[i].system.distanceTo(route[i-1].system))
+            else: dist = None
             text += hopFmt.format(
-                station = decorateStation(route[i]),
+                station = decorateStation(route[i], dist),
                 purchases = purchases
             )
             if tdenv.showJumps and jumpsFmt and self.jumps[i]:
@@ -445,7 +449,7 @@ class Route(object):
                 stn = route[i + 1]
                 stnName = stn.name()
                 text += dockFmt.format(
-                    station = decorateStation(stn),
+                    station = decorateStation(stn, int(stn.system.distanceTo(route[i].system))),
                     gain = hopGainCr,
                     tongain = hopGainCr / hopTonnes,
                     credits = credits + gainCr + hopGainCr
