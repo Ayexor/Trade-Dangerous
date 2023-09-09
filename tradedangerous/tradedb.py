@@ -55,7 +55,7 @@ from collections import namedtuple
 from pathlib import Path
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradeexcept import TradeException
-from tradedangerous.cache import *
+from tradedangerous.cache import buildCache, importDataFromFile
 from tradedangerous.utils import normalizedStr
 
 from contextlib import closing
@@ -735,7 +735,7 @@ class TradeDB(object):
                     return
                 
                 self.tdenv.DEBUG0(".prices has changed: re-importing")
-                cache.importDataFromFile(
+                importDataFromFile(
                     self, self.tdenv, self.pricesPath, reset=True
                 )
                 return
@@ -744,7 +744,7 @@ class TradeDB(object):
         else:
             self.tdenv.DEBUG0("Building DB Cache")
         
-        cache.buildCache(self, self.tdenv)
+        buildCache(self, self.tdenv)
     
     ############################################################
     # Load "added" data.

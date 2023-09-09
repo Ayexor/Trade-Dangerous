@@ -12,8 +12,6 @@
 from __future__ import absolute_import, with_statement, print_function, division, unicode_literals
 
 import sys
-import os
-import re
 import sqlite3
 
 
@@ -53,13 +51,13 @@ def dumpPrices(
     stations = {
         ID: [ name, systems[sysID] ]
         for (ID, name, sysID)
-        in cur.execute("SELECT station_id, name, system_id FROM Station")
+        in cur.execute("SELECT station_id, pretty_name, system_id FROM Station")
     }
     categories = { ID: name for (ID, name) in cur.execute("SELECT category_id, name FROM Category") }
     items = {
         ID: [ name, catID, categories[catID] ]
         for (ID, name, catID)
-        in cur.execute("SELECT item_id, name, category_id FROM Item")
+        in cur.execute("SELECT item_id, pretty_name, category_id FROM Item")
     }
     
     # find longest item name
@@ -118,8 +116,6 @@ def dumpPrices(
         print(sql)
     cur.execute(sql)
     
-    lastSys, lastStn, lastCat = None, None, None
-    
     if not file: file = sys.stdout
     
     if stationID:
@@ -177,13 +173,14 @@ def dumpPrices(
     defIQL = "?" if not defaultZero else "-"
     
     output = ""
+    lastStn, lastCat = None, None
     for (stnID, itemID, fromStn, toStn, demand, demandLevel, supply, supplyLevel, modified) in cur:
         modified = modified or now
         station, system = stations[stnID]
         item, catID, category = items[itemID]
         if stnID != lastStn:
             file.write(output)
-            output = "\n\n@ {}/{}\n".format(system.upper(), station)
+            output = "\n\n@ {} / {}\n".format(system, station)
             lastStn = stnID
             lastCat = None
         

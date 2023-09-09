@@ -23,9 +23,8 @@
 from collections import namedtuple
 from pathlib import Path
 from tradedangerous.tradeexcept import TradeException
-from tradedangerous.utils import *
-from tradedangerous.corrections import *
-from tradedangerous.prices import *
+from tradedangerous.utils import normalizedStr
+from tradedangerous.prices import dumpPrices, Element
 
 import csv
 import math
@@ -330,17 +329,6 @@ def processPrices(tdenv, priceFile, db, defaultZero):
     
     systemByName = getSystemByNameIndex(cur)
     stationByName = getStationByNameIndex(cur)
-    stationByName.update(
-        (sys, ID)
-        for sys, ID in corrections.stations.items()
-        if isinstance(ID, int)
-    )
-    sysCorrections = corrections.systems
-    stnCorrections = {
-        stn: alt
-        for stn, alt in corrections.stations.items()
-        if isinstance(alt, str)
-    }
     
     itemByName = getItemByNameIndex(cur)
     
@@ -353,8 +341,6 @@ def processPrices(tdenv, priceFile, db, defaultZero):
     processedSystems = set()
     processedItems = {}
     stationItemDates = {}
-    itemPrefix = ""
-    DELETED = corrections.DELETED
     items, zeros, buys, sells = [], [], [], []
     
     lineNo, localAdd = 0, 0
@@ -374,50 +360,13 @@ def processPrices(tdenv, priceFile, db, defaultZero):
         # ## Change current station
         stationItemDates = {}
         systemNameIn, stationNameIn = matches.group(1, 2)
-        systemName, stationName = systemNameIn.upper(), stationNameIn.upper()
-        corrected = False
+        systemName, stationName = normalizedStr(systemNameIn), normalizedStr(stationNameIn)
+        systemID = systemByName.get(systemName, -1)
         facility = "/".join((systemName, stationName))
         
         # Make sure it's valid.
-        stationID = DELETED
         newID = stationByName.get(facility, -1)
         DEBUG0("Selected station: {}, ID={}", facility, newID)
-        if newID is DELETED:
-            DEBUG1("DELETED Station: {}", facility)
-            return
-        if newID < 0:
-            # This matches just about everything. Even those which are simply unknown.
-            #if utils.checkForOcrDerp(tdenv, systemName, stationName):
-            #    return
-            corrected = True
-            altName = sysCorrections.get(systemName, None)
-            if altName is DELETED:
-                DEBUG1("DELETED System: {}", facility)
-                return
-            if altName:
-                DEBUG1("SYSTEM '{}' renamed '{}'", systemName, altName)
-                systemName, facility = altName, "/".join((altName, stationName))
-            
-            systemID = systemByName.get(systemName, -1)
-            if systemID < 0:
-                ignoreOrWarn(
-                    UnknownSystemError(priceFile, lineNo, facility)
-                )
-                return
-            
-            altStation = stnCorrections.get(facility, None)
-            if altStation is DELETED:
-                DEBUG1("DELETED Station: {}", facility)
-                return
-            if altStation:
-                DEBUG1("Station '{}' renamed '{}'", facility, altStation)
-                stationName = altStation.upper()
-                facility = "/".join((systemName, stationName))
-            
-            newID = stationByName.get(facility, -1)
-            if newID is DELETED:
-                DEBUG1("Renamed station DELETED: {}", facility)
-                return
         
         if newID < 0:
             if not ignoreUnknown:
@@ -425,35 +374,29 @@ def processPrices(tdenv, priceFile, db, defaultZero):
                         UnknownStationError(priceFile, lineNo, facility)
                 )
                 return
-            name = titleFixup(stationName)
             inscur = db.cursor()
             inscur.execute("""
                 INSERT INTO Station (
-                    system_id, name,
+                    system_id, name, pretty_name,
                     ls_from_star,
                     blackmarket,
                     max_pad_size,
                     market,
                     shipyard,
-                    modified
+                    modified,
+                    fleet,
+                    odyssey
                 ) VALUES (
-                    ?, ?, 0, '?', '?', '?', '?',
-                    DATETIME('now')
+                    ?, ?, ?, 0, '?', '?', 'Y', '?',
+                    DATETIME('now'), '?', '?'
                 )
-            """, [systemID, name])
+            """, [systemID, stationName, stationNameIn])
             newID = inscur.lastrowid
             stationByName[facility] = newID
             tdenv.NOTE("Added local station placeholder for {} (#{})",
                     facility, newID
             )
             localAdd += 1
-        elif newID in processedStations:
-            # Check for duplicates
-            if not corrected:
-                raise MultipleStationEntriesError(
-                    priceFile, lineNo, facility,
-                    processedStations[newID]
-                )
         
         stationID = newID
         processedSystems.add(systemName)
@@ -473,22 +416,16 @@ def processPrices(tdenv, priceFile, db, defaultZero):
     
     def processItemLine(matches, db):
         nonlocal newItems, updtItems, ignItems
-        itemName, modified = matches.group('item', 'time')
-        itemName = normalizedStr(itemName)
+        prettyName, modified = matches.group('item', 'time')
+        itemName = normalizedStr(prettyName)
         
         # Look up the item ID.
         itemID = getItemID(itemName, -1)
         if itemID < 0:
-            oldName = itemName
-            itemName = corrections.correctItem(itemName)
-            itemName = normalizedStr(itemName)
-            if itemName == DELETED:
-                DEBUG1("DELETED {}", oldName)
-                return
             cur = db.cursor()
             cur.execute(
-                "INSERT INTO Item (name, category_id) VALUES(?, ?)",
-                [itemName, 15] # 15 is category "Unknown"
+                "INSERT INTO Item (name, pretty_name, category_id) VALUES(?, ?, ?)",
+                [itemName, prettyName, 15] # 15 is category "Unknown"
                 )
             db.commit()
             itemID = cur.lastrowid
@@ -499,7 +436,6 @@ def processPrices(tdenv, priceFile, db, defaultZero):
                     CreateItemError(priceFile, lineNo, itemName, itemID)
                 )
                 return
-            DEBUG1("Renamed {} -> {}", oldName, itemName)
         
         lastModified = stationItemDates.get(itemID, None)
         if lastModified and merging:
@@ -596,9 +532,6 @@ def processPrices(tdenv, priceFile, db, defaultZero):
             # Need a station to process any other type of line.
             raise SyntaxError(priceFile, lineNo,
                                 "Expecting '@ SYSTEM / Station' line", text)
-        if stationID == DELETED:
-            # Ignore all values from a deleted station/system.
-            continue
         
         ########################################
         # ## "+ Category" lines
@@ -697,51 +630,6 @@ def processPricesFile(tdenv, db, pricesPath, pricesFh = None, defaultZero = Fals
         tdenv.NOTE("Ignored {} items with old data", ignItems)
 
 ######################################################################
-
-
-def depCheck(importPath, lineNo, depType, key, correctKey):
-    if correctKey == key:
-        return
-    if correctKey == corrections.DELETED:
-        raise DeletedKeyError(importPath, lineNo, depType, key)
-    raise DeprecatedKeyError(importPath, lineNo, depType, key, correctKey)
-
-
-def deprecationCheckSystem(importPath, lineNo, line):
-    depCheck(
-        importPath, lineNo, 'System',
-        line[0], corrections.correctSystem(line[0]),
-    )
-
-
-def deprecationCheckStation(importPath, lineNo, line):
-    depCheck(
-        importPath, lineNo, 'System',
-        line[0], corrections.correctSystem(line[0]),
-    )
-    depCheck(
-        importPath, lineNo, 'Station',
-        line[1], corrections.correctStation(line[0], line[1]),
-    )
-
-
-def deprecationCheckCategory(importPath, lineNo, line):
-    depCheck(
-        importPath, lineNo, 'Category',
-        line[0], corrections.correctCategory(line[0]),
-    )
-
-
-def deprecationCheckItem(importPath, lineNo, line):
-    depCheck(
-        importPath, lineNo, 'Category',
-        line[0], corrections.correctCategory(line[0]),
-    )
-    depCheck(
-        importPath, lineNo, 'Item',
-        line[1], corrections.correctItem(line[1]),
-    )
-
 
 def processImportFile(tdenv, db, importPath, tableName):
     tdenv.DEBUG0(
@@ -986,9 +874,9 @@ def regeneratePricesFile(tdb, tdenv):
     tdenv.DEBUG0("Regenerating .prices file")
     
     with tdb.pricesPath.open("w", encoding = 'utf-8') as pricesFile:
-        prices.dumpPrices(
+        dumpPrices(
                 tdb.dbFilename,
-                prices.Element.full,
+                Element.full,
                 file = pricesFile,
                 debug = tdenv.debug)
     
