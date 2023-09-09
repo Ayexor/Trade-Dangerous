@@ -386,8 +386,9 @@ def processPrices(tdenv, priceFile, db, defaultZero):
             DEBUG1("DELETED Station: {}", facility)
             return
         if newID < 0:
-            if utils.checkForOcrDerp(tdenv, systemName, stationName):
-                return
+            # This matches just about everything. Even those which are simply unknown.
+            #if utils.checkForOcrDerp(tdenv, systemName, stationName):
+            #    return
             corrected = True
             altName = sysCorrections.get(systemName, None)
             if altName is DELETED:
