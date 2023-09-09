@@ -55,7 +55,7 @@ from collections import namedtuple
 from pathlib import Path
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradeexcept import TradeException
-#import tradedangerous.cache
+import tradedangerous.cache
 
 from contextlib import closing
 import heapq
