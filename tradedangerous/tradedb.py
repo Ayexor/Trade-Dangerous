@@ -814,13 +814,13 @@ class TradeDB(object):
         Look up a System object by it's name.
         """
         key = self.normalizedStr(key)
+        if exactOnly:
+            return self.systemByName.get(key, None)
         if isinstance(key, System):
             return key
         if isinstance(key, Station):
             return key.system
-        if exactOnly:
-            return None
-
+        
         return TradeDB.listSearch(
             "System", key, self.systems(), key=lambda system: system.dbname
         )
@@ -1660,10 +1660,13 @@ class TradeDB(object):
         Look up a Station object by it's name or system.
         """
         name = self.normalizedStr(name)
+        if exactOnly:
+            stationID=-1
+            for row in self.query("SELECT station_id FROM Station WHERE name = '{}'".format(name)):
+                stationID = row
+            return self.stationByID.get(stationID, None)
         if isinstance(name, Station):
             return name
-        if exactOnly:
-            return None
         if isinstance(name, System):
             # When given a system with only one station, return the station.
             if len(name.stations) != 1:
