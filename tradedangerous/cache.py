@@ -23,9 +23,9 @@
 from collections import namedtuple
 from pathlib import Path
 from tradedangerous.tradeexcept import TradeException
-import tradedangerous.tradedb
-import tradedangerous.corrections, tradedangerous.utils
-import tradedangerous.prices
+from tradedangerous.utils import *
+from tradedangerous.corrections import *
+from tradedangerous.prices import *
 
 import csv
 import math
@@ -425,7 +425,7 @@ def processPrices(tdenv, priceFile, db, defaultZero):
                         UnknownStationError(priceFile, lineNo, facility)
                 )
                 return
-            name = utils.titleFixup(stationName)
+            name = titleFixup(stationName)
             inscur = db.cursor()
             inscur.execute("""
                 INSERT INTO Station (
@@ -474,14 +474,14 @@ def processPrices(tdenv, priceFile, db, defaultZero):
     def processItemLine(matches, db):
         nonlocal newItems, updtItems, ignItems
         itemName, modified = matches.group('item', 'time')
-        itemName = tradedb.TradeDB.normalizedStr(itemName)
+        itemName = normalizedStr(itemName)
         
         # Look up the item ID.
         itemID = getItemID(itemName, -1)
         if itemID < 0:
             oldName = itemName
             itemName = corrections.correctItem(itemName)
-            itemName = tradedb.TradeDB.normalizedStr(itemName)
+            itemName = normalizedStr(itemName)
             if itemName == DELETED:
                 DEBUG1("DELETED {}", oldName)
                 return

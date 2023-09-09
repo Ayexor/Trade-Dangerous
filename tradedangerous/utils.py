@@ -241,3 +241,23 @@ def checkForOcrDerp(tdenv, systemName, stationName):
         )
         return match
     return None
+
+# Translation map for normalizing strings
+normalizeTrans = str.maketrans(
+    'abcdefghijklmnopqrstuvwxyz',
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    '[]()*+-.,{}:'
+    )
+trimTrans = str.maketrans('', '', ' \'')
+
+@staticmethod
+def normalizedStr(text):
+    """
+        Returns a case folded, sanitized version of 'str' suitable for
+        performing simple and partial matches against. Removes various
+        punctuation characters that don't contribute to name uniqueness.
+
+        Also used to generate dbname from prettyName in systems,
+        stations and items.
+    """
+    return text.translate(normalizeTrans).translate(trimTrans)

@@ -55,7 +55,8 @@ from collections import namedtuple
 from pathlib import Path
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradeexcept import TradeException
-import tradedangerous.cache
+from tradedangerous.cache import *
+from tradedangerous.utils import normalizedStr
 
 from contextlib import closing
 import heapq
@@ -584,14 +585,6 @@ class TradeDB(object):
             to find approximate matches.
     """
     
-    # Translation map for normalizing strings
-    normalizeTrans = str.maketrans(
-        'abcdefghijklmnopqrstuvwxyz',
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-        '[]()*+-.,{}:'
-        )
-    trimTrans = str.maketrans('', '', ' \'')
-    
     # The DB cache
     defaultDB = 'TradeDangerous.db'
     # File containing SQL to build the DB cache from
@@ -810,7 +803,7 @@ class TradeDB(object):
         """
         Look up a System object by it's name.
         """
-        key = self.normalizedStr(key)
+        key = normalizedStr(key)
         if exactOnly:
             return self.systemByName.get(key, None)
         if isinstance(key, System):
@@ -833,7 +826,7 @@ class TradeDB(object):
         """
         Add a system to the local cache and memory copy.
         """
-        name = self.normalizedStr(prettyName)
+        name = normalizedStr(prettyName)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
@@ -1258,7 +1251,7 @@ class TradeDB(object):
         """
         Add a station to the local cache and memory copy.
         """
-        name = self.normalizedStr(prettyName)
+        name = normalizedStr(prettyName)
         market = market.upper()
         blackMarket = blackMarket.upper()
         shipyard = shipyard.upper()
@@ -1369,7 +1362,7 @@ class TradeDB(object):
             )
         
         if name is not None:
-            name = self.normalizedStr(name)
+            name = normalizedStr(name)
             if force or name != station.dbname:
                 _changed("name", station.dbname, name)
                 station.dbname = name
@@ -1383,7 +1376,7 @@ class TradeDB(object):
         
         def _check_setting(label, name, newValue, allowed):
             if newValue is not None:
-                newValue = self.normalizedStr(newValue)
+                newValue = normalizedStr(newValue)
                 assert newValue in allowed
                 oldValue = getattr(station, name, '?')
                 if newValue != oldValue and (force or newValue != '?'):
@@ -1507,7 +1500,7 @@ class TradeDB(object):
         if isinstance(name, System) or isinstance(name, Station):
             return name
         
-        name = self.normalizedStr(name)
+        name = normalizedStr(name)
         slashPos = name.find('/')
         if slashPos < 0:
             slashPos = name.find('\\')
@@ -1651,7 +1644,7 @@ class TradeDB(object):
         """
         Look up a Station object by it's name or system.
         """
-        name = self.normalizedStr(name)
+        name = normalizedStr(name)
         if exactOnly:
             stationID=-1
             for row in self.query("SELECT station_id FROM Station WHERE name = '{}'".format(name)):
@@ -1941,7 +1934,7 @@ class TradeDB(object):
         """
         if not category:
             category = self.categoryByID[15] # Unknown
-        name = self.normalizedStr(prettyName)
+        name = normalizedStr(prettyName)
         db = self.getDB()
         cur = db.cursor()
         cur.execute("""
@@ -1961,7 +1954,7 @@ class TradeDB(object):
         """
             Look up an Item by name using "CATEGORY/Item"
         """
-        name = self.normalizedStr(name)
+        name = normalizedStr(name)
         try: 
             return self.itemByName[name]
         except KeyError:
@@ -2111,16 +2104,14 @@ class TradeDB(object):
         class ListSearchMatch(namedtuple('Match', ['key', 'value'])):
             pass
         
-        normTrans = TradeDB.normalizeTrans
-        trimTrans = TradeDB.trimTrans
-        needle = lookup.translate(normTrans).translate(trimTrans)
+        needle = normalizedStr(lookup)
         partialMatch, wordMatch = [], []
         # make a regex to match whole words
         wordRe = re.compile(r'\b{}\b'.format(lookup), re.IGNORECASE)
         # describe a match
         for entry in values:
             entryKey = key(entry)
-            normVal = entryKey.translate(normTrans).translate(trimTrans)
+            normVal = normalizedStr(entryKey)
             if normVal.find(needle) > -1:
                 # If this is an exact match, ignore ambiguities.
                 if len(normVal) == len(needle):
@@ -2149,20 +2140,6 @@ class TradeDB(object):
         # No matches
         raise LookupError(
             "Error: '%s' doesn't match any %s" % (lookup, listType)
-        )
-    
-    @staticmethod
-    def normalizedStr(text):
-        """
-            Returns a case folded, sanitized version of 'str' suitable for
-            performing simple and partial matches against. Removes various
-            punctuation characters that don't contribute to name uniqueness.
-            NOTE: No-longer removes whitespaces or apostrophes.
-        """
-        return text.translate(
-            TradeDB.normalizeTrans
-        ).translate(
-            TradeDB.trimTrans
         )
 
 ######################################################################
