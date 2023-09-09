@@ -3,6 +3,7 @@ from __future__ import absolute_import, with_statement, print_function, division
 from .exceptions import CommandLineError, PadSizeError, PlanetaryError, FleetCarrierError
 from ..tradedb import AmbiguityError, System, Station
 from ..tradeenv import TradeEnv
+from tradedangerous.utils import normalizedStr
 
 import os
 import pathlib
@@ -167,7 +168,7 @@ class CommandEnv(TradeEnv):
             try:
                 item = tdb.lookupItem(avoid)
                 avoidItems.append(item)
-                if tdb.normalizedStr(item.name()) == tdb.normalizedStr(avoid):
+                if normalizedStr(item.name()) == normalizedStr(avoid):
                     continue
             except LookupError:
                 pass
@@ -175,7 +176,7 @@ class CommandEnv(TradeEnv):
             try:
                 place = tdb.lookupPlace(avoid)
                 avoidPlaces.append(place)
-                if tdb.normalizedStr(place.name()) == tdb.normalizedStr(avoid):
+                if normalizedStr(place.name()) == normalizedStr(avoid):
                     continue
                 continue
             except LookupError:

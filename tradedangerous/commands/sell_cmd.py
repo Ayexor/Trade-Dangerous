@@ -201,12 +201,12 @@ def run(results, cmdenv, tdb:TradeDB):
 def render(results, cmdenv, tdb):
     from ..formatting import RowFormat, ColumnFormat
     
-    longestNamed = max(results.rows, key=lambda result: len(result.station.name()))
-    longestNameLen = len(longestNamed.station.name())
+    longestNamed = max(results.rows, key=lambda result: len(result.station.fullName()))
+    longestNameLen = len(longestNamed.station.fullName())
     
     stnRowFmt = RowFormat()
     stnRowFmt.addColumn('Station', '<', longestNameLen,
-            key=lambda row: row.station.name())
+            key=lambda row: row.station.fullName())
     stnRowFmt.addColumn('Cost', '>', 10, 'n',
             key=lambda row: row.price)
     if cmdenv.detail:
