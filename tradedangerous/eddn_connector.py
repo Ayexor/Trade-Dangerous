@@ -171,16 +171,19 @@ def main():
                 itemName = commodity['name']
                 try:
                     item = tdb.lookupItem(itemName, createNonExisting=True)
-                except (LookupError, tradedb.AmbiguityError) as err:
+                except (LookupError, AmbiguityError) as err:
                     echoLog("Adding {} failed: {}".format(itemName, err.__str__()))
                     continue
                 
                 items.append((
                     station.ID, item.ID, timestamp,
-                    commodity['buyPrice'], commodity['demand'], commodity['demandBracket'] or -1,
-                    commodity['sellPrice'], commodity['stock'], commodity['stockBracket'] or -1
+                    commodity['sellPrice'], commodity['demand'], commodity['demandBracket'] or -1,
+                    commodity['buyPrice'], commodity['stock'], commodity['stockBracket'] or -1
             ))
             
+            # Remove old entries
+            tdb.getDB().execute("DELETE FROM StationItem WHERE station_id = {:d}".format(station.ID))
+            # Add the items from the log
             tdb.getDB().executemany("""
                     INSERT OR REPLACE INTO StationItem (
                         station_id, item_id, modified,
