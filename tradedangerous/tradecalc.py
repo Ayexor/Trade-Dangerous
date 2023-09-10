@@ -254,7 +254,7 @@ class Route(object):
             hopFmt = (
                 "  Load from "
                 +colorize("cyan", "{station}") + 
-                ":\n{purchases}"
+                "\n{purchases}"
             )
             hopStepFmt = (
                 colorize("lightYellow", "     {qty:>4}") + 
