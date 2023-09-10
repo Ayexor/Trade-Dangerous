@@ -866,14 +866,13 @@ class TradeDB(object):
         oldname = system.prettyName
         if not force:
             if oldname == prettyName and \
-                    system.posX == x and \
-                    system.posY == y and \
-                    system.posZ == z:
+                system.posX == x and system.posY == y and system.posZ == z and \
+                x != 0 and y != 0 and z != 0:
                 return False
         db = self.getDB()
         db.execute("""
             UPDATE System
-               SET prettyName=?,
+               SET pretty_name=?,
                    pos_x=?, pos_y=?, pos_z=?,
                    added_id=(SELECT added_id FROM Added WHERE name = ?),
                    modified=DATETIME(?)
@@ -1376,7 +1375,7 @@ class TradeDB(object):
         
         def _check_setting(label, name, newValue, allowed):
             if newValue is not None:
-                newValue = normalizedStr(newValue)
+                newValue = newValue.upper()
                 assert newValue in allowed
                 oldValue = getattr(station, name, '?')
                 if newValue != oldValue and (force or newValue != '?'):

@@ -63,6 +63,8 @@ def date(__format):
     return d.strftime(__format)
 
 def dumpJson(filename, json):
+    if os.path.exists(filename):
+        os.unlink(filename)
     echoFile(filename, simplejson.dumps(json, indent=2))
 
 __oldTime = False
@@ -175,10 +177,14 @@ def main():
                     echoLog("Adding {} failed: {}".format(itemName, err.__str__()))
                     continue
                 
+                if commodity['demandBracket'] == "": demandBracket = -1
+                else: demandBracket = commodity['demandBracket']
+                if commodity['stockBracket'] == "": stockBracket = -1
+                else: stockBracket = commodity['stockBracket']
                 items.append((
                     station.ID, item.ID, timestamp,
-                    commodity['sellPrice'], commodity['demand'], commodity['demandBracket'] or -1,
-                    commodity['buyPrice'], commodity['stock'], commodity['stockBracket'] or -1
+                    commodity['sellPrice'], commodity['demand'], demandBracket,
+                    commodity['buyPrice'], commodity['stock'], stockBracket
             ))
             
             # Remove old entries
@@ -205,7 +211,6 @@ def main():
             exportCommodityToPricesFile(message)
             echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
 
-    dockedDumpCount = 0
     def parseMessageDocked(message):
         # Docked message, containing information about the station
         # Report system and station if the station contains a market
@@ -317,8 +322,6 @@ def main():
                     echoLog('')
                     break
 
-                #echoLog('Got a message')
-
                 __message   = zlib.decompress(__message)
                 if __message == False:
                     echoLog('Failed to decompress message')
@@ -351,10 +354,6 @@ def main():
                 else:
                   # Schema not implemented
                   pass
-                
-                #else:
-                #    echoLog('Unknown schema: ' + __json['$schemaRef']);
-
 
         except zmq.ZMQError as e:
             echoLog('')
