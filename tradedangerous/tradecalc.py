@@ -822,26 +822,38 @@ class TradeCalc(object):
         itemIdx = self.tdb.itemByID
         minGainCr = max(1, self.tdenv.minGainPerTon or 1)
         maxGainCr = max(minGainCr, self.tdenv.maxGainPerTon or sys.maxsize)
-        getBuy = {buy[0]: buy for buy in dstBuying}.get
         addTrade = trading.append
-        for sell in srcSelling:  # should be the smaller list
-            buy = getBuy(sell[0], None)
-            if buy:
-                gainCr = buy[1] - sell[1]
-                if gainCr >= minGainCr and gainCr <= maxGainCr:
-                    addTrade(Trade(
-                        itemIdx[sell[0]],
-                        sell[1], gainCr,
-                        sell[2], sell[3],
-                        buy[2], buy[3],
-                        sell[4], buy[4],
-                    ))
+        # Iterate over the smaller list
+        if len(srcSelling) <= len(dstBuying):
+            getBuy = {buy[0]: buy for buy in dstBuying}.get
+            for sell in srcSelling:
+                buy = getBuy(sell[0], None)
+                if buy:
+                    gainCr = buy[1] - sell[1]
+                    if gainCr >= minGainCr and gainCr <= maxGainCr:
+                        addTrade(Trade(
+                            itemIdx[sell[0]], sell[1], gainCr, sell[2],
+                            sell[3],buy[2], buy[3], sell[4], buy[4],
+                        ))
+        else:
+            getSell = {sell[0]: sell for sell in srcSelling}.get
+            for buy in dstBuying:
+                sell = getSell(buy[0], None)
+                if sell:
+                    gainCr = buy[1] - sell[1]
+                    if gainCr >= minGainCr and gainCr <= maxGainCr:
+                        addTrade(Trade(
+                            itemIdx[sell[0]], sell[1], gainCr, sell[2],
+                            sell[3],buy[2], buy[3], sell[4], buy[4],
+                        ))
+
         
         # SORT BY profit DESC, cost ASC
         # So if two items have the same profit, the cheapest will come first.
-        trading.sort(key = lambda trade: trade.costCr)
-        trading.sort(key = lambda trade: trade.gainCr, reverse = True)
-        
+        #trading.sort(key = lambda trade: trade.costCr)
+        #trading.sort(key = lambda trade: trade.gainCr, reverse = True)
+        trading.sort(key = lambda trade: (trade.costCr, -trade.gainCr))
+
         return trading
     
     def getBestHops(self, routes, restrictTo = None):
