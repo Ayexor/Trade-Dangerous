@@ -23,22 +23,19 @@ __debugEDDN             = False
 #__logVerboseFile        = os.path.dirname(__file__) + '/EDDN_Connector-%DATE%.log'
 __logVerboseFile        = False
 
+# Check https://eddn.edcd.io/ for statistics
 # A sample list of authorised softwares
 __authorisedSoftwares   = [
-    "E:D Market Connector [Windows]",
-    "E:D Market Connector [Mac]",
     "E:D Market Connector [Linux]",
+    "E:D Market Connector [Mac]",
+    "E:D Market Connector [Windows]",
     "EDDiscovery",
-    "EDSM",
-    "EDDI",
-    "EDDLite",
     "EDO Materials Helper",
-    "UGC App",
+    "EDDI",
+    "EDSM",
+    "EDDLite",
     "Journal Limpet"
 ]
-
-#Log software that was not authorized here
-__logNonAuthorised = __reportDir + '/non-auth-software.log'
 
 # Used this to excludes yourself for example as you don't want to handle your own messages
 __excludedSoftwares     = [
@@ -334,7 +331,6 @@ def main():
                 if __json['header']['softwareName'] in __excludedSoftwares:
                     continue
                 if not __json['header']['softwareName'] in __authorisedSoftwares:
-                    echoFile(__logNonAuthorised, __json['header']['softwareName'])
                     continue
 
                 # Only process messages from the Odyssey version of the game.

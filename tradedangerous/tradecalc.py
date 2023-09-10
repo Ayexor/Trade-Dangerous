@@ -923,10 +923,8 @@ class TradeCalc(object):
                     )
         
         else:
-            getDestinations = tdb.getDestinations
-            
             def station_iterator(srcStation):
-                yield from getDestinations(
+                yield from tdb.getDestinations(
                     srcStation,
                     maxJumps = maxJumpsPer,
                     maxLyPer = maxLyPer,
@@ -952,10 +950,12 @@ class TradeCalc(object):
             routeJumps = len(route.jumps)
             
             srcSelling = getSelling(srcStation.ID, None)
-            srcSelling = tuple(
-                values for values in srcSelling
-                if values[1] <= startCr
-            )
+            # Filter expensive items iff we do not have a lot of money
+            if startCr < 1e6:
+                srcSelling = tuple(
+                    values for values in srcSelling
+                    if values[1] <= startCr
+                )
             if not srcSelling:
                 tdenv.DEBUG1("Nothing sold/affordable - next.")
                 continue

@@ -160,7 +160,7 @@ class System(object):
         if ary:
             self.pos = ary([posX, posY, posZ], nptype)
         self.addedID = addedID or 0
-        self.stations = ()
+        self.stations = []
         self._rangeCache = None
     
     @property
@@ -301,7 +301,7 @@ class Station(object):
         self.odyssey = odyssey
         self.itemCount = itemCount
         self.dataAge = dataAge
-        system.stations = system.stations + (self,)
+        system.stations.append(self)
     
     def name(self, detail=0):
         return self.prettyName
@@ -669,8 +669,7 @@ class TradeDB(object):
         dX = (lx - rx)
         dY = (ly - ry)
         dZ = (lz - rz)
-        distSq = (dX ** 2) + (dY ** 2) + (dZ ** 2)
-        return distSq
+        return dX*dX + dY*dY + dZ*dZ
     
     @staticmethod
     def calculateDistance(lx, ly, lz, rx, ry, rz):
@@ -680,8 +679,7 @@ class TradeDB(object):
         dX = (lx - rx)
         dY = (ly - ry)
         dZ = (lz - rz)
-        distSq = (dX ** 2) + (dY ** 2) + (dZ ** 2)
-        return distSq ** 0.5
+        return (dX*dX + dY*dY + dZ*dZ) ** 0.5
     
     ############################################################
     # Access to the underlying database.
@@ -692,7 +690,7 @@ class TradeDB(object):
         self.tdenv.DEBUG1("Connecting to DB")
         conn = sqlite3.connect(self.dbFilename)
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA synchronous=OFF")
+        #conn.execute("PRAGMA synchronous=OFF")
         conn.execute("PRAGMA temp_store=MEMORY")
         conn.create_function('dist2', 6, TradeDB.calculateDistance2)
         self.conn = conn
@@ -944,12 +942,11 @@ class TradeDB(object):
                 The radius of the search around system,
         
         Yields:
-            (candidate, distLySq)
+            (candidate, distLy)
                 candidate:
                     System that was found,
                 distLySq:
-                    The *SQUARE* of the distance in light-years
-                    between system and candidate.
+                    The distance in light-years between system and candidate.
         """
         if self.stellarGrid is None:
             self.__buildStellarGrid()
@@ -959,21 +956,16 @@ class TradeDB(object):
         uprBound = makeStellarGridKey(sysX + ly, sysY + ly, sysZ + ly)
         lySq = ly ** 2
         stellarGrid = self.stellarGrid
-        for x in range(lwrBound[0], uprBound[0]+1):
-            for y in range(lwrBound[1], uprBound[1]+1):
-                for z in range(lwrBound[2], uprBound[2]+1):
+        for x in range(lwrBound[0], uprBound[0]):
+            for y in range(lwrBound[1], uprBound[1]):
+                for z in range(lwrBound[2], uprBound[2]):
                     try:
                         grid = stellarGrid[(x, y, z)]
                     except KeyError:
                         continue
                     for candidate in grid:
-                        distSq = (candidate.posX - sysX) ** 2
-                        if distSq > lySq:
-                            continue
-                        distSq += (candidate.posY - sysY) ** 2
-                        if distSq > lySq:
-                            continue
-                        distSq += (candidate.posZ - sysZ) ** 2
+                        px, py, pz = candidate.posX - sysX, candidate.posY - sysY, candidate.posZ - sysZ
+                        distSq = px*px + py*py + pz*pz
                         if distSq > lySq:
                             continue
                         if candidate is not system:
@@ -1615,7 +1607,7 @@ class TradeDB(object):
         name = normalizedStr(name)
         if exactOnly:
             stationID=-1
-            for row in self.query("SELECT station_id FROM Station WHERE name = '{}'".format(name)):
+            for row in self.query("SELECT station_id FROM Station WHERE name = '%s'" % name):
                 stationID = row[0]
             return self.stationByID.get(stationID, None)
         if isinstance(name, Station):
@@ -1748,13 +1740,10 @@ class TradeDB(object):
                         ):
                     dist = node.distLy + destDist
                     # If we already have a shorter path, do nothing
-                    try:
-                        prevDist = pathList[destSys.ID].distLy
-                    except KeyError:
-                        pass
-                    else:
-                        if dist >= prevDist:
+                    if destSys.ID in pathList:
+                        if pathList[destSys.ID].distLy <= dist:
                             continue
+
                     # Add to the path list
                     destNode = DestinationNode(
                         destSys, node.via + [destSys], dist
@@ -1764,13 +1753,13 @@ class TradeDB(object):
                     # list so that it serves as the via list for all next-hops.
                     openList.append(destNode)
         
-        # We have a system-to-system path list, now we
-        # need stations to terminate at.
+        # Remove the avoid systems (having negative distance)
+        pathList = dict(filter(lambda x: x[1].distLy >= 0, pathList.items()))
+        # We have a system-to-system path list, now we need stations to terminate at.
         def path_iter_fn():
             for node in pathList.values():
-                if node.distLy >= 0.0:
-                    for station in node.system.stations:
-                        yield node, station
+                for station in node.system.stations:
+                    yield node, station
         
         path_iter = iter(
           (node, station) for (node, station) in path_iter_fn()

@@ -51,13 +51,13 @@ CREATE TABLE System
    added_id INTEGER,
    modified DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
 
-   UNIQUE (system_id),
+   UNIQUE (name),
 
     FOREIGN KEY (added_id) REFERENCES Added(added_id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
  );
-CREATE INDEX idx_system_by_pos ON System (pos_x, pos_y, pos_z, system_id);
+ CREATE INDEX idx_system_by_pos ON System (pos_x, pos_y, pos_z, system_id);
 
 
 CREATE TABLE Station
@@ -93,14 +93,14 @@ CREATE TABLE Station
    odyssey  TEXT(1) NOT NULL DEFAULT '?'
        CHECK (odyssey  IN ('?', 'Y', 'N')),
 
-   UNIQUE (station_id),
+   UNIQUE (name, system_id),
 
    FOREIGN KEY (system_id) REFERENCES System(system_id)
     ON UPDATE CASCADE
     ON DELETE CASCADE
  );
-CREATE INDEX idx_station_by_system ON Station (system_id, station_id);
-CREATE INDEX idx_station_by_name ON Station (name);
+ CREATE INDEX idx_station_by_system ON Station (system_id, station_id);
+ CREATE INDEX idx_station_by_name ON Station (name);
 
 
 CREATE TABLE Ship
@@ -129,7 +129,7 @@ CREATE TABLE ShipVendor
     ON UPDATE CASCADE
     ON DELETE CASCADE
  ) WITHOUT ROWID
-;
+ ;
 
 
 CREATE TABLE Upgrade
@@ -233,13 +233,13 @@ CREATE TABLE StationItem
     ON UPDATE CASCADE ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES Item(item_id)
     ON UPDATE CASCADE ON DELETE CASCADE
-);
-CREATE INDEX si_mod_stn_itm ON StationItem(modified, station_id, item_id);
-CREATE INDEX si_itm_dmdpr ON StationItem(item_id, demand_price) WHERE demand_price > 0;
-CREATE INDEX si_itm_suppr ON StationItem(item_id, supply_price) WHERE supply_price > 0;
+ );
+ CREATE INDEX si_mod_stn_itm ON StationItem(modified, station_id, item_id);
+ CREATE INDEX si_itm_dmdpr ON StationItem(item_id, demand_price) WHERE demand_price > 0;
+ CREATE INDEX si_itm_suppr ON StationItem(item_id, supply_price) WHERE supply_price > 0;
 
 CREATE VIEW StationBuying AS
-SELECT  station_id,
+ SELECT  station_id,
         item_id,
         demand_price AS price,
         demand_units AS units,
@@ -247,10 +247,10 @@ SELECT  station_id,
         modified
   FROM  StationItem
  WHERE  demand_price > 0
-;
+ ;
 
 CREATE VIEW StationSelling AS
-SELECT  station_id,
+ SELECT  station_id,
         item_id,
         supply_price AS price,
         supply_units AS units,
@@ -258,7 +258,7 @@ SELECT  station_id,
         modified
   FROM  StationItem
  WHERE  supply_price > 0
-;
+ ;
 
 
 --

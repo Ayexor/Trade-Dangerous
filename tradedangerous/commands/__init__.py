@@ -146,10 +146,8 @@ class CommandIndex(object):
         # ## and only worry about an index when that fails or
         # ## the user requests usage.
         cmdName, cmdModule = argv[1].casefold(), None
-        try:
+        if cmdName in commandIndex:
             cmdModule = commandIndex[cmdName]
-        except KeyError:
-            pass
         
         if not cmdModule:
             candidates = []
@@ -179,7 +177,7 @@ class CommandIndex(object):
                 raise exceptions.CommandLineError(message, self.format_usage())
         
         parser = ArgParser(
-                    description = "TradeDangerous: " + cmdName,
+                    description = "TradeDangerous: %s" % cmdName,
                     add_help = False,
                     epilog = 'Use {prog} {cmd} -h for more help'.format(
                             prog = argv[0], cmd = argv[1]
