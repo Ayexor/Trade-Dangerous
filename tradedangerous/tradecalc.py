@@ -376,17 +376,11 @@ class Route(object):
             return string
                 
         if detail and goalSystem:
-            
             def goalDistance(station):
                 return " [Distance to {}: {:.2f} ly]\n".format(
-                    goalSystem.name(),
-                    station.system.distanceTo(goalSystem),
-                )
-        
+                    goalSystem.name(), station.system.distanceTo(goalSystem),)
         else:
-            
-            def goalDistance(station):
-                return ""
+            def goalDistance(station): return ""
         
         for i, hop in enumerate(hops):
             hopGainCr, hopTonnes = hop[1], 0

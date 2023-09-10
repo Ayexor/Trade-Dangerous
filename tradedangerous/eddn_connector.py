@@ -7,7 +7,7 @@ import simplejson
 import sys, os, datetime, time
 import signal
 from tradedangerous.tradeenv import TradeEnv
-from tradedangerous.tradedb import TradeDB
+from tradedangerous.tradedb import TradeDB, AmbiguityError
 
 """
  "  Configuration
@@ -20,26 +20,29 @@ __timeoutEDDN           = 600000
 __debugEDDN             = False
 
 # Set to False if you do not want verbose logging
-#__logVerboseFile        = os.path.dirname(__file__) + '/Logs_Verbose_EDDN_%DATE%.htm'
+#__logVerboseFile        = os.path.dirname(__file__) + '/EDDN_Connector-%DATE%.log'
 __logVerboseFile        = False
 
 # A sample list of authorised softwares
 __authorisedSoftwares   = [
     "E:D Market Connector [Windows]",
+    "E:D Market Connector [Mac]",
     "E:D Market Connector [Linux]",
     "EDDiscovery",
+    "EDSM",
     "EDDI",
-    "EDCE",
-    "ED-TD.SPACE",
-    "EliteOCR",
-    "Maddavo's Market Share",
-    "RegulatedNoise",
-    "RegulatedNoise__DJ"
+    "EDDLite",
+    "EDO Materials Helper",
+    "UGC App",
+    "Journal Limpet"
 ]
 
-# Used this to excludes yourself for example has you don't want to handle your own messages ^^
+#Log software that was not authorized here
+__logNonAuthorised = __reportDir + '/non-auth-software.log'
+
+# Used this to excludes yourself for example as you don't want to handle your own messages
 __excludedSoftwares     = [
-    'My Awesome Market Uploader'
+    'GameGlass',
 ]
 
 """
@@ -68,11 +71,6 @@ def echoLog(__str):
 
     if __logVerboseFile != False:
         __logVerboseFileParsed = __logVerboseFile.replace('%DATE%', str(date('%Y-%m-%d')))
-
-    if __logVerboseFile != False and not os.path.exists(__logVerboseFileParsed):
-        f = open(__logVerboseFileParsed, 'w')
-        f.write('<style type="text/css">html { white-space: pre; font-family: Courier New,Courier,Lucida Sans Typewriter,Lucida Typewriter,monospace; }</style>')
-        f.close()
 
     if (__oldTime == False) or (__oldTime != date('%H:%M:%S')):
         __oldTime = date('%H:%M:%S')
@@ -199,10 +197,10 @@ def main():
         try:
             station = tdb.lookupStation(message['stationName'], message['systemName'])
             importCommodityToTradeDB(message, station)
-            echoLog('- Commodities updated for: ' + message['systemName'] + " / " + message['stationName'])
+            echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
         except LookupError:
             exportCommodityToPricesFile(message)
-            echoLog('- Commodities exported for: ' + message['systemName'] + " / " + message['stationName'])
+            echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
 
     dockedDumpCount = 0
     def parseMessageDocked(message):
@@ -327,9 +325,10 @@ def main():
                     echoLog('Failed to parse message as json')
                 
                 # Check authorisation and exclusion
-                if not __json['header']['softwareName'] in __authorisedSoftwares:
-                    continue
                 if __json['header']['softwareName'] in __excludedSoftwares:
+                    continue
+                if not __json['header']['softwareName'] in __authorisedSoftwares:
+                    echoFile(__logNonAuthorised, __json['header']['softwareName'])
                     continue
 
                 # Only process messages from the Odyssey version of the game.
@@ -341,6 +340,7 @@ def main():
                 if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/commodity/3' + ('/test' if (__debugEDDN == True) else ''):
                     parseMessageCommodity(__json['message'])
                 
+                # Handle journal entries ("docked" contain required system and station information)
                 if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/journal/1' + ('/test' if (__debugEDDN == True) else ''):
                     if __json['message']['event'] == 'Docked':
                         parseMessageDocked(__json['message'])
