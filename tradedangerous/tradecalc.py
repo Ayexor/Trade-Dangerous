@@ -211,7 +211,7 @@ class Route(object):
         return self.score == rhs.score and len(self.jumps) == len(rhs.jumps)
     
     def str(self, colorize):
-        return "%s -> %s" % (colorize("cyan", self.firstStation.name()), colorize("blue", self.lastStation.name()))
+        return "%s -> %s" % (colorize("cyan", self.firstStation.fullName()), colorize("blue", self.lastStation.fullName()))
     
     def detail(self, tdenv):
         """
@@ -270,8 +270,10 @@ class Route(object):
                 dockFmt = (
                     "  Unload at "
                     +colorize("lightBlue", "{station}") + 
-                    "\n    => Gain {gain:n}cr "
-                    "({tongain:n}cr/ton) => {credits:n}cr\n"
+                    ("\n    " if detail > 2 else " ") +
+                    "=> Gain {gain:n}cr " +
+                    "({tongain:n}cr/ton)" +
+                    (" => {credits:n}cr\n" if detail > 3 else "\n")
                 )
             else:
                 jumpsFmt = re.sub("  ", "    ", jumpsFmt, re.M)
@@ -342,46 +344,42 @@ class Route(object):
                 last = jump
             return travelled, text
         
-        if detail > 1:
-            
-            def decorateStation(station, dist=None):
-                details = []
+        def decorateStation(station, detail = 0, dist=None):
+            details = []
+            if detail >= 1:
                 if dist:
                     details.append("{:d} Ly".format(dist))
                 if station.lsFromStar:
                     details.append(station.distFromStar(True))
-                if station.blackMarket != '?':
-                    details.append('BMk:' + station.blackMarket)
-                if station.maxPadSize != '?':
-                    details.append('Pad:' + station.maxPadSize)
+            if detail > 2:
                 if station.planetary != '?':
                     details.append('Plt:' + station.planetary)
                 if station.fleet != '?':
                     details.append('Flc:' + station.fleet)
                 if station.odyssey != '?':
                     details.append('Ody:' + station.odyssey)
+            if detail > 3:
+                if station.blackMarket != '?':
+                    details.append('BMk:' + station.blackMarket)
+                if station.maxPadSize != '?':
+                    details.append('Pad:' + station.maxPadSize)
                 if station.shipyard != '?':
                     details.append('Shp:' + station.shipyard)
                 if station.outfitting != '?':
                     details.append('Out:' + station.outfitting)
                 if station.refuel != '?':
                     details.append('Ref:' + station.refuel)
-                details = "{} ({})".format(
-                    station.fullName(),
-                    ", ".join(details or ["no details"])
-                )
-                return details
-        
-        else:
-            
-            def decorateStation(station, dist = None):
-                return station.fullName() + (" ({:d} Ly)".format(dist) if dist else '')
-        
+            string=station.fullName()
+            if len(details) > 0:
+                string +=  " ({})".format(
+                    ", ".join(details))
+            return string
+                
         if detail and goalSystem:
             
             def goalDistance(station):
                 return " [Distance to {}: {:.2f} ly]\n".format(
-                    goalSystem.fullName(),
+                    goalSystem.name(),
                     station.system.distanceTo(goalSystem),
                 )
         
@@ -416,10 +414,8 @@ class Route(object):
                 )
                 hopTonnes += qty
             text += goalDistance(route[i])
-            if i > 0: dist = int(route[i].system.distanceTo(route[i-1].system))
-            else: dist = None
             text += hopFmt.format(
-                station = decorateStation(route[i], dist),
+                station = decorateStation(route[i]),
                 purchases = purchases
             )
             if tdenv.showJumps and jumpsFmt and self.jumps[i]:
@@ -449,7 +445,7 @@ class Route(object):
                 stn = route[i + 1]
                 stnName = stn.name()
                 text += dockFmt.format(
-                    station = decorateStation(stn, int(stn.system.distanceTo(route[i].system))),
+                    station = decorateStation(stn, detail, int(stn.system.distanceTo(route[i].system))),
                     gain = hopGainCr,
                     tongain = hopGainCr / hopTonnes,
                     credits = credits + gainCr + hopGainCr
