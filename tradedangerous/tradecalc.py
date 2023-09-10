@@ -535,7 +535,7 @@ class TradeCalc(object):
         self.defaultFit = fit or self.simpleFit
         if "BRUTE_FIT" in os.environ:
             self.defaultFit = self.bruteForceFit
-        minSupply = self.tdenv.supply or 0
+        minSupply = self.tdenv.supply or 1
         minDemand = self.tdenv.demand or 0
         
         db = tdb.getDB()
@@ -595,13 +595,12 @@ class TradeCalc(object):
                     stnID, itmID, timestamp
                 )
             if dmdCr > 0:
-                if not minDemand or dmdUnits >= minDemand:
+                if dmdUnits >= minDemand or dmdUnits == -1:
                     dmdAppend((itmID, dmdCr, dmdUnits, dmdLevel, ageS))
                     dmdCount += 1
-            if supCr > 0 and supUnits:
-                if not minSupply or supUnits >= minSupply:
-                    supAppend((itmID, supCr, supUnits, supLevel, ageS))
-                    supCount += 1
+            if supCr > 0 and supUnits >= minSupply:
+                supAppend((itmID, supCr, supUnits, supLevel, ageS))
+                supCount += 1
         
         tdenv.DEBUG0("Loaded {} buys, {} sells".format(dmdCount, supCount))
     
