@@ -702,7 +702,8 @@ class TradeDB(object):
     
     def queryColumn(self, *args):
         """ perform an SQL query and return a single column. """
-        return self.query(args).fetchone()[0]
+        ans = self.query(*args).fetchone()
+        return ans[0] if ans else None
     
     def reloadCache(self):
         """
@@ -1602,13 +1603,11 @@ class TradeDB(object):
     
     def lookupStation(self, name, system=None, exactOnly=False):
         """
-        Look up a Station object by it's name or system.
+        Look up a Station object by its name or system.
         """
         name = normalizedStr(name)
         if exactOnly:
-            stationID=-1
-            for row in self.query("SELECT station_id FROM Station WHERE name = '%s'" % name):
-                stationID = row[0]
+            stationID = self.queryColumn("SELECT station_id FROM Station WHERE name = '%s'" % name)
             return self.stationByID.get(stationID, None)
         if isinstance(name, Station):
             return name
