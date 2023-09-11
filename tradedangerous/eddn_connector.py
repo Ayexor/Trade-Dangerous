@@ -4,7 +4,8 @@
 import zlib
 import zmq
 import simplejson
-import sys, os, datetime, time
+import sys, os, time
+from datetime import datetime
 import signal
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradedb import TradeDB, AmbiguityError
@@ -56,8 +57,23 @@ def signal_handler(sig, frame):
     exitGracefully = True
 
 def date(__format):
-    d = datetime.datetime.utcnow()
+    d = datetime.utcnow()
     return d.strftime(__format)
+
+def getTimeStamp(string):
+    stdFormat = '%Y-%m-%dT%H:%M:%S%z' # ISO 8601
+    for fmt in (
+            '%Y-%m-%dT%H:%M:%SZ',
+            '%Y-%m-%dT%H:%M:%S.%fZ',
+            '%Y-%m-%d %H:%M:%SZ',
+            '%Y-%m-%d %H:%M:%S.%fZ'
+        ):
+        try:
+            return datetime.strptime(string, fmt).strftime(stdFormat)
+        except ValueError:
+            pass
+    echoLog("#ERROR: Timestamp not recognised: %s" % string)
+    return date(stdFormat)
 
 def dumpJson(filename, json):
     if os.path.exists(filename):
@@ -127,10 +143,7 @@ def main():
             while os.path.isfile(filename.format(cnt)):
                 cnt = cnt + 1
             filename = filename.format(cnt)
-            try:
-                timestamp = datetime.datetime.strftime(datetime.datetime.strptime(message['timestamp'], '%Y-%m-%dT%H:%M:%SZ'), '%Y-%m-%d %H:%M:%S')
-            except ValueError:
-                timestamp = date('%Y-%m-%d %H:%M:%S')
+            timestamp = getTimeStamp(message['timestamp'])
             
             echoFile(filename, "#! trade import -")
             echoFile(filename, "# Created by EDDN client")
@@ -161,10 +174,7 @@ def main():
 
         def importCommodityToTradeDB(message, station):
             items=[]
-            try:
-                timestamp = datetime.datetime.strftime(datetime.datetime.strptime(message['timestamp'], '%Y-%m-%dT%H:%M:%SZ'), '%Y-%m-%d %H:%M:%S')
-            except ValueError:
-                timestamp = date('%Y-%m-%d %H:%M:%S')
+            timestamp = getTimeStamp(message['timestamp'])
 
             for commodity in message['commodities']:
                 itemName = commodity['name']
@@ -237,10 +247,7 @@ def main():
         refuel = getYNfromService(stnServices, 'refuel')
         repair = getYNfromService(stnServices, 'repair')
 
-        try:
-            timestamp = datetime.datetime.strftime(datetime.datetime.strptime(message['timestamp'], '%Y-%m-%dT%H:%M:%SZ'), '%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            timestamp = date('%Y-%m-%d %H:%M:%S')
+        timestamp = getTimeStamp(message['timestamp'])
         
         sysNew=sysUpdate=False
         system = tdb.lookupSystem(systemName, exactOnly=True)
