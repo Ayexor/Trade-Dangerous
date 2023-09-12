@@ -212,7 +212,7 @@ def main():
         
         try:
             system = tdb.lookupSystem(message['systemName'], exactOnly=True)
-            station = tdb.lookupStation(message['stationName'], system)
+            station = tdb.lookupStation(message['stationName'], system, exactOnly=True)
             importCommodityToTradeDB(message, station)
             echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
         except LookupError:

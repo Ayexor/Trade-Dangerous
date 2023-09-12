@@ -321,7 +321,7 @@ class Checklist(object):
             if cmdenv.detail:
                 self.note("HOP {} of {}".format(hopNo, lastHopIdx))
             
-            self.note("Buy at {}".format(cur.name()))
+            self.note("Buy at {}".format(cur.fullName()))
             for (trade, qty) in sortedTradeOptions:
                 self.doStep(
                         'Buy {:n} x'.format(qty),
@@ -336,16 +336,13 @@ class Checklist(object):
             
             # If there is a next hop, describe how to get there.
             self.note(
-                "Fly {}"
-                .format(
-                    " -> ".join(jump.name() for jump in jumps[idx])
+                "Fly %s" % " -> ".join(jump.name() for jump in jumps[idx])
                 )
-            )
             if idx < len(hops) and jumps[idx]:
                 for jump in jumps[idx][1:]:
                     self.doStep('Jump to', jump.name())
             if cmdenv.detail:
-                self.doStep('Dock at', nxt.str())
+                self.doStep('Dock at', nxt.fullName())
             print()
             
             self.note("Sell at {}".format(nxt.name()))

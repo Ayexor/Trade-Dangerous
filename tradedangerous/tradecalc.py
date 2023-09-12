@@ -345,11 +345,13 @@ class Route(object):
                 last = jump
             return travelled, text
         
-        def decorateStation(station, detail = 0, dist=None):
+        def decorateStation(station, detail = 0, dist=None, jumps=None):
             details = []
             if detail >= 1:
                 if dist:
                     details.append("{:d} Ly".format(dist))
+                if jumps and jumps > 1:
+                    details.append("{:d} Jmps".format(jumps))
                 if station.lsFromStar:
                     details.append(station.distFromStar(True))
             if detail > 2:
@@ -440,7 +442,9 @@ class Route(object):
                 stn = route[i + 1]
                 stnName = stn.name()
                 text += dockFmt.format(
-                    station = decorateStation(stn, detail, int(stn.system.distanceTo(route[i].system))),
+                    station = decorateStation(
+                        stn, detail, int(stn.system.distanceTo(route[i].system)), len(self.jumps[i])-1
+),
                     gain = hopGainCr,
                     tongain = hopGainCr / hopTonnes,
                     credits = credits + gainCr + hopGainCr
