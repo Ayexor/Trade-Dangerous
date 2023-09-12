@@ -24,6 +24,9 @@ __debugEDDN             = False
 #__logVerboseFile        = os.path.dirname(__file__) + '/EDDN_Connector-%DATE%.log'
 __logVerboseFile        = False
 
+# Error log file
+__errorLogFile          = __reportDir + "/error.log"
+
 # Check https://eddn.edcd.io/ for statistics
 # A sample list of authorised softwares
 __authorisedSoftwares   = [
@@ -234,6 +237,9 @@ def main():
         lsFromStar = int(message["DistFromStarLS"] + 0.5)
         planetary = "Y" if stationType in ("surfacestation","craterport","crateroutpost",) else "N"
         maxPadSize = "M" if stationType.startswith("outpost") else "L"
+        if stationType == "fleetcarrier":
+            # Do not parse fleet carrier messages.
+            return
         fleet = "Y" if stationType == "fleetcarrier" else "N"
         odyssey = "Y" if stationType == "onfootsettlement" else "N"
 
@@ -251,50 +257,26 @@ def main():
         timestamp = getTimeStamp(message['timestamp'])
         
         sysNew=sysUpdate=False
-        system = tdb.lookupSystem(systemName, exactOnly=True)
-        if system:
+        try:
+            system = tdb.lookupSystem(systemName, exactOnly=True)
             sysUpdate = tdb.updateLocalSystem(system=system,prettyName=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
-        else:
+        except LookupError:
             tdb.addLocalSystem(prettyName=systemName,x=systemPos[0],y=systemPos[1],z=systemPos[2])
             system = tdb.lookupSystem(systemName, exactOnly=True)
             sysNew=True
         
         statNew=statUpdate=False
-        station = tdb.lookupStation(stationName, system, exactOnly=True)
-        if station:
-            statUpdate = tdb.updateLocalStation(
-                station=station,
-                lsFromStar=None,
-                market=market,
-                blackMarket=blackmarket,
-                shipyard=shipyard,
-                maxPadSize=maxPadSize,
-                outfitting=outfitting,
-                rearm=rearm,
-                refuel=refuel,
-                repair=repair,
-                planetary=planetary,
-                fleet=fleet,
-                odyssey=odyssey
+        try:
+            station = tdb.lookupStation(stationName, system, exactOnly=True)
+            statUpdate = tdb.updateLocalStation(station=station, lsFromStar=None, market=market,
+                blackMarket=blackmarket, shipyard=shipyard, maxPadSize=maxPadSize, outfitting=outfitting,
+                rearm=rearm, refuel=refuel, repair=repair, planetary=planetary, fleet=fleet, odyssey=odyssey
             )
-        else:
-            tdb.addLocalStation(
-                system=system,
-                prettyName=stationName,
-                lsFromStar=lsFromStar,
-                market=market,
-                blackMarket=blackmarket,
-                shipyard=shipyard,
-                maxPadSize=maxPadSize,
-                outfitting=outfitting,
-                rearm=rearm,
-                refuel=refuel,
-                repair=repair,
-                planetary=planetary,
-                fleet=fleet,
-                odyssey=odyssey,
-                modified=timestamp,
-                commit=True
+        except LookupError:
+            tdb.addLocalStation( system=system, prettyName=stationName, lsFromStar=lsFromStar, market=market,
+                blackMarket=blackmarket, shipyard=shipyard, maxPadSize=maxPadSize, outfitting=outfitting,
+                rearm=rearm, refuel=refuel, repair=repair, planetary=planetary, fleet=fleet,
+                odyssey=odyssey, modified=timestamp, commit=True
             )
             station = tdb.lookupStation(name=stationName, system=system, exactOnly=True)
             statNew=True
@@ -346,18 +328,19 @@ def main():
                 if not __json['message'].get('odyssey', False):
                     continue
 
-                # Handle commodity v3
-                if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/commodity/3' + ('/test' if (__debugEDDN == True) else ''):
-                    parseMessageCommodity(__json['message'])
+                try:
+                    # Handle commodity v3
+                    if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/commodity/3' + ('/test' if (__debugEDDN == True) else ''):
+                        parseMessageCommodity(__json['message'])
+                    
+                    # Handle journal entries ("docked" contain required system and station information)
+                    if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/journal/1' + ('/test' if (__debugEDDN == True) else ''):
+                        if __json['message']['event'] == 'Docked':
+                            parseMessageDocked(__json['message'])
                 
-                # Handle journal entries ("docked" contain required system and station information)
-                if __json['$schemaRef'] == 'https://eddn.edcd.io/schemas/journal/1' + ('/test' if (__debugEDDN == True) else ''):
-                    if __json['message']['event'] == 'Docked':
-                        parseMessageDocked(__json['message'])
-
-                else:
-                  # Schema not implemented
-                  pass
+                except Exception as error:
+                    echoLog(error.__str__())
+                    echoFile(__errorLogFile, error.__str__())
 
         except zmq.ZMQError as e:
             echoLog('')

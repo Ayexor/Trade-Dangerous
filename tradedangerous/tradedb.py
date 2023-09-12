@@ -808,7 +808,11 @@ class TradeDB(object):
             return key.system
         key = normalizedStr(key)
         if exactOnly:
-            return self.systemByName.get(key, None)
+            system = self.systemByName.get(key, None)
+            if system:
+                return system
+            else:
+                raise LookupError("Error: '%s' doesn't match any system" % key)
         
         return TradeDB.listSearch(
             "System", key, self.systems(), key=lambda system: system.dbname
@@ -1624,25 +1628,23 @@ class TradeDB(object):
             if exactOnly:
                 if system:
                     stationID = self.queryColumn("SELECT station_id FROM Station WHERE name = '%s' AND system_id = %d" % (name, system.ID))
-                    return self.stationByID.get(stationID, None)
+                    station = self.stationByID.get(stationID, None)
+                if station:
+                    return station
                 else:
-                    return None
+                    raise LookupError("Error: '%s' doesn't match any station" % name)
             else:
                 return TradeDB.listSearch(
                     "Station", name, system.stations,
                     key=lambda system: system.dbname)        
         if exactOnly:
-            stationID = self.query("SELECT station_id FROM Station WHERE name = '%s'" % name)
+            stationID, stationCount = self.query("SELECT station_id, COUNT(station_id) FROM Station WHERE name = '%s'" % name).fetchone()
             if not stationID:
                 return None
-            if len(stationID) == 1:
-                return self.stationByID.get(stationID[0], None)
-            if len(stationID) > 1:
-                raise AmbiguityError(
-                   'Station', name,
-                   {self.stationByID[x[0]] for x in stationID},
-                   key=lambda x: x.fullName
-                )
+            if stationCount == 1:
+                return self.stationByID.get(stationID, None)
+            if stationCount > 1:
+                raise LookupError("'%s' match more than one station." % (name))
 
         
         stationID, station, systemID, system = None, None, None, None
