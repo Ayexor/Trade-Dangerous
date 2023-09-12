@@ -41,6 +41,7 @@ from collections import defaultdict
 from collections import namedtuple
 from .tradedb import System, Station, Trade, TradeDB, describeAge
 from .tradedb import Destination
+from .tradeenv import TradeEnv
 from .tradeexcept import TradeException
 
 import datetime
@@ -494,7 +495,7 @@ class TradeCalc(object):
     Container for accessing trade calculations with common properties.
     """
     
-    def __init__(self, tdb, tdenv = None, fit = None, items = None):
+    def __init__(self, tdb: TradeDB, tdenv: TradeEnv = None, fit = None, items = None):
         """
         Constructs the TradeCalc object and loads sell/buy data.
         

@@ -307,7 +307,7 @@ class Station(object):
         return self.prettyName
     
     def fullName(self, detail=0):
-        return '%s / %s' % (self.system.prettyName, self.prettyName)
+        return '%s/%s' % (self.system.prettyName, self.prettyName)
     
     def checkPadSize(self, maxPadSize):
         """
