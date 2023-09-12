@@ -842,7 +842,7 @@ class TradeCalc(object):
         # So if two items have the same profit, the cheapest will come first.
         #trading.sort(key = lambda trade: trade.costCr)
         #trading.sort(key = lambda trade: trade.gainCr, reverse = True)
-        trading.sort(key = lambda trade: (trade.costCr, -trade.gainCr))
+        trading.sort(key = lambda trade: (-trade.gainCr, trade.costCr))
 
         return trading
     
@@ -1030,16 +1030,13 @@ class TradeCalc(object):
                     halfDrop = 5 # Where to drop to 50% of given penalty
                     if dstStation.lsFromStar > dropStart * 1000:
                         cruiseKls = dstStation.lsFromStar / 1000
-                        score *= (1 - lsPenalty) + lsPenalty / (1+((cruiseKls-dropStart)/(halfDrop-dropStart)) ** 2)
+                        multiplier = (1 - lsPenalty) + lsPenalty / (1+((cruiseKls-dropStart)/(halfDrop-dropStart)) ** 2)
+                        score *= multiplier
                 
                 dstID = dstStation.ID
-                try:
+                if dstID in bestToDest:
                     # See if there is already a candidate for this destination
                     btd = bestToDest[dstID]
-                except KeyError:
-                    # No existing candidate, we win by default
-                    pass
-                else:
                     bestRoute = btd[1]
                     bestScore = btd[5]
                     # Check if it is a better option than we just produced
@@ -1047,10 +1044,8 @@ class TradeCalc(object):
                     newTradeScore = route.score + score
                     if bestTradeScore > newTradeScore:
                         continue
-                    if bestTradeScore == newTradeScore:
-                        bestLy = btd[4]
-                        if bestLy <= dest.distLy:
-                            continue
+                    if bestTradeScore == newTradeScore and btd[4] <= dest.distLy:
+                        continue
                 
                 bestToDest[dstID] = (dstStation, route, trade, dest.via, dest.distLy, score)
         

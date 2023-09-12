@@ -802,13 +802,13 @@ class TradeDB(object):
         """
         Look up a System object by it's name.
         """
-        key = normalizedStr(key)
-        if exactOnly:
-            return self.systemByName.get(key, None)
         if isinstance(key, System):
             return key
         if isinstance(key, Station):
             return key.system
+        key = normalizedStr(key)
+        if exactOnly:
+            return self.systemByName.get(key, None)
         
         return TradeDB.listSearch(
             "System", key, self.systems(), key=lambda system: system.dbname
@@ -957,9 +957,9 @@ class TradeDB(object):
         uprBound = makeStellarGridKey(sysX + ly, sysY + ly, sysZ + ly)
         lySq = ly ** 2
         stellarGrid = self.stellarGrid
-        for x in range(lwrBound[0], uprBound[0]):
-            for y in range(lwrBound[1], uprBound[1]):
-                for z in range(lwrBound[2], uprBound[2]):
+        for x in range(lwrBound[0], uprBound[0]+1): # Mind: range(a, b) is wit a and without b
+            for y in range(lwrBound[1], uprBound[1]+1):
+                for z in range(lwrBound[2], uprBound[2]+1):
                     try:
                         grid = stellarGrid[(x, y, z)]
                     except KeyError:
@@ -1605,10 +1605,6 @@ class TradeDB(object):
         """
         Look up a Station object by its name or system.
         """
-        name = normalizedStr(name)
-        if exactOnly:
-            stationID = self.queryColumn("SELECT station_id FROM Station WHERE name = '%s'" % name)
-            return self.stationByID.get(stationID, None)
         if isinstance(name, Station):
             return name
         if isinstance(name, System):
@@ -1622,11 +1618,32 @@ class TradeDB(object):
                 )
             return name.stations[0]
         
+        name = normalizedStr(name)
         if system:
-            system = self.lookupSystem(system)
-            return TradeDB.listSearch(
-                "Station", name, system.stations,
-                key=lambda system: system.dbname)
+            system = self.lookupSystem(system, exactOnly=exactOnly)
+            if exactOnly:
+                if system:
+                    stationID = self.queryColumn("SELECT station_id FROM Station WHERE name = '%s' AND system_id = %d" % (name, system.ID))
+                    return self.stationByID.get(stationID, None)
+                else:
+                    return None
+            else:
+                return TradeDB.listSearch(
+                    "Station", name, system.stations,
+                    key=lambda system: system.dbname)        
+        if exactOnly:
+            stationID = self.query("SELECT station_id FROM Station WHERE name = '%s'" % name)
+            if not stationID:
+                return None
+            if len(stationID) == 1:
+                return self.stationByID.get(stationID[0], None)
+            if len(stationID) > 1:
+                raise AmbiguityError(
+                   'Station', name,
+                   {self.stationByID[x[0]] for x in stationID},
+                   key=lambda x: x.fullName
+                )
+
         
         stationID, station, systemID, system = None, None, None, None
         try:
