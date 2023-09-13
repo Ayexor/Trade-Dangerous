@@ -240,7 +240,7 @@ class Route(object):
         
         text = self.str(colorize)
         if detail >= 1:
-            text += " (score: {:f})".format(self.score)
+            text += " (score: {:n})".format(int(self.score))
         text += "\n"
         jumpsFmt = ("  Jump {jumps}\n")
         cruiseFmt = ("  Supercruise to {stn}\n")
@@ -348,12 +348,15 @@ class Route(object):
         def decorateStation(station, detail = 0, dist=None, jumps=None):
             details = []
             if detail >= 1:
-                if dist:
-                    details.append("{:d} Ly".format(dist))
-                if jumps and jumps > 1:
-                    details.append("{:d} Jmps".format(jumps))
                 if station.lsFromStar:
                     details.append(station.distFromStar(True))
+                if jumps > 0:
+                    if jumps == 1:
+                        details.append("1 Jmp")
+                    else:
+                        details.append("{:d} Jmps".format(jumps))
+                if dist:
+                    details.append("{:d} Ly".format(dist))
             if detail > 2:
                 if station.planetary != '?':
                     details.append('Plt:' + station.planetary)
@@ -443,8 +446,7 @@ class Route(object):
                 stnName = stn.name()
                 text += dockFmt.format(
                     station = decorateStation(
-                        stn, detail, int(stn.system.distanceTo(route[i].system)), len(self.jumps[i])-1
-),
+                        stn, detail, int(stn.system.distanceTo(route[i].system)), len(self.jumps[i])-1),
                     gain = hopGainCr,
                     tongain = hopGainCr / hopTonnes,
                     credits = credits + gainCr + hopGainCr
@@ -952,7 +954,6 @@ class TradeCalc(object):
             
             srcStation = route.lastStation
             startCr = credits + int(route.gainCr * safetyMargin)
-            routeJumps = len(route.jumps)
             
             srcSelling = getSelling(srcStation.ID, None)
             # Filter expensive items iff we do not have a lot of money
