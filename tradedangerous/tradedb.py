@@ -304,7 +304,10 @@ class Station(object):
         system.stations.append(self)
     
     def name(self, detail=0):
-        return self.prettyName
+        if detail > 0:
+            return '%s/%s' % (self.system.prettyName, self.prettyName)
+        else:
+            return self.prettyName
     
     def fullName(self, detail=0):
         return '%s/%s' % (self.system.prettyName, self.prettyName)
@@ -394,15 +397,12 @@ class Station(object):
                 return "Unk"
             else:
                 return '?'
-        if ls < 1000:
-            suffix = 'ls' if addSuffix else ''
+        if ls < 1e3:
+            suffix = ' ls' if addSuffix else ''
             return '{:n}'.format(ls)+suffix
-        if ls < 10000:
-            suffix = 'ls' if addSuffix else ''
-            return '{:.2f}K'.format(ls / 1000)+suffix
-        if ls < 1000000:
-            suffix = 'ls' if addSuffix else ''
-            return '{:n}K'.format(int(ls / 1000))+suffix
+        if ls < 1e6:
+            suffix = ' kls' if addSuffix else 'k'
+            return '{:n}'.format(int(ls / 1000))+suffix
         return '{:.2f}ly'.format(ls / (365*24*60*60))
     
     @property
@@ -1602,7 +1602,7 @@ class TradeDB(object):
         raise AmbiguityError(
             'System/Station', name,
             exactMatch + closeMatch + wordMatch + anyMatch,
-            key=lambda place: place.name()
+            key=lambda place: place.name(detail=1)
         )
     
     def lookupStation(self, name, system=None, exactOnly=False):

@@ -240,7 +240,7 @@ class Route(object):
         
         text = self.str(colorize)
         if detail >= 1:
-            text += " (score: {:f})".format(self.score)
+            text += " (score: {:n})".format(int(self.score))
         text += "\n"
         jumpsFmt = ("  Jump {jumps}\n")
         cruiseFmt = ("  Supercruise to {stn}\n")
@@ -273,7 +273,7 @@ class Route(object):
                     +colorize("lightBlue", "{station}") + 
                     ("\n    " if detail > 2 else " ") +
                     "=> Gain {gain:n}cr " +
-                    "({tongain:n}cr/ton)" +
+                    "({tongain:n}cr/ton, score: {hopscore:n})" +
                     (" => {credits:n}cr\n" if detail > 3 else "\n")
                 )
             else:
@@ -348,12 +348,15 @@ class Route(object):
         def decorateStation(station, detail = 0, dist=None, jumps=None):
             details = []
             if detail >= 1:
-                if dist:
-                    details.append("{:d} Ly".format(dist))
-                if jumps and jumps > 1:
-                    details.append("{:d} Jmps".format(jumps))
                 if station.lsFromStar:
                     details.append(station.distFromStar(True))
+                if jumps > 0:
+                    if jumps == 1:
+                        details.append("1 Jmp")
+                    else:
+                        details.append("{:d} Jmps".format(jumps))
+                if dist:
+                    details.append("{:d} Ly".format(dist))
             if detail > 2:
                 if station.planetary != '?':
                     details.append('Plt:' + station.planetary)
@@ -443,10 +446,10 @@ class Route(object):
                 stnName = stn.name()
                 text += dockFmt.format(
                     station = decorateStation(
-                        stn, detail, int(stn.system.distanceTo(route[i].system)), len(self.jumps[i])-1
-),
+                        stn, detail, int(stn.system.distanceTo(route[i].system)), len(self.jumps[i])-1),
                     gain = hopGainCr,
                     tongain = hopGainCr / hopTonnes,
+                    hopscore=hop.score,
                     credits = credits + gainCr + hopGainCr
                 )
             
@@ -952,7 +955,6 @@ class TradeCalc(object):
             
             srcStation = route.lastStation
             startCr = credits + int(route.gainCr * safetyMargin)
-            routeJumps = len(route.jumps)
             
             srcSelling = getSelling(srcStation.ID, None)
             # Filter expensive items iff we do not have a lot of money
@@ -1031,12 +1033,25 @@ class TradeCalc(object):
                 if lsPenalty:
                     # Simply and continuously penalize larger distances
                     # Drops smoothly from 1 to 1-lsPenalty
-                    dropStart = 1 # Start of drop, in kLs
-                    halfDrop = 5 # Where to drop to 50% of given penalty
-                    if dstStation.lsFromStar > dropStart * 1000:
-                        cruiseKls = dstStation.lsFromStar / 1000
-                        multiplier = (1 - lsPenalty) + lsPenalty / (1+((cruiseKls-dropStart)/(halfDrop-dropStart)) ** 2)
-                        score *= multiplier
+                    #dropStart = 1 # Start of drop, in kLs
+                    #halfDrop = 5 # Where to drop to 50% of given penalty
+                    #if dstStation.lsFromStar > dropStart * 1000:
+                    #    cruiseKls = dstStation.lsFromStar / 1000
+                    #    multiplier = (1 - lsPenalty) + lsPenalty / (1+((cruiseKls-dropStart)/(halfDrop-dropStart)) ** 2)
+                    #    score *= multiplier
+
+                    # Account for number of jumps and travel time to calculate score based on ~credits gain per time
+                    def travelTime(ls : float, jumps: int) -> float:
+                        return (
+                            ((ls + 300)**0.5) * 2.5 # Travel time in super cruis
+                            + jumps * 35            # Travel time per jump
+                            + 120                    # Travel time for undocking and docking
+                         ) 
+                    scale = travelTime(300, 2) # Scale for 2 jumps and 300 ls -> multiplier = 1
+                    multiplier = scale / travelTime(dstStation.lsFromStar, len(dest.via)-1)
+                    score *= 1 + (multiplier - 1) * lsPenalty
+                trade.score = int(score)
+
                 
                 dstID = dstStation.ID
                 if dstID in bestToDest:
