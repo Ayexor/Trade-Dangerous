@@ -219,8 +219,9 @@ def main():
             importCommodityToTradeDB(message, station)
             echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
         except LookupError:
-            exportCommodityToPricesFile(message)
-            echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
+            #exportCommodityToPricesFile(message)
+            #echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
+            echoLog('- Ignore prices for unknown station: ' + message['systemName'] + " / " + message['stationName'])
 
     def parseMessageDocked(message):
         # Docked message, containing information about the station
