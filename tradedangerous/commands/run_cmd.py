@@ -1115,16 +1115,16 @@ def extraRouteProgress(routes):
     bestGain = max(routes, key = lambda route: route.gainCr).gainCr
     worstGain = min(routes, key = lambda route: route.gainCr).gainCr
     if bestGain != worstGain:
-        gainText = "{:n}-{:n}cr gain".format(worstGain, bestGain)
+        gainText = "{:10n} - {:10n} cr gain".format(worstGain, bestGain)
     else:
-        gainText = "{:n}cr gain".format(bestGain)
+        gainText = "{:n} cr gain".format(bestGain)
     
     bestGPT = int(max(routes, key = lambda route: route.gpt).gpt)
     worstGPT = int(min(routes, key = lambda route: route.gpt).gpt)
     if bestGPT != worstGPT:
-        gptText = "{:n}-{:n}cr/ton".format(worstGPT, bestGPT)
+        gptText = "{:6n} - {:6n} cr/ton".format(worstGPT, bestGPT)
     else:
-        gptText = "{:n}cr/ton".format(bestGPT)
+        gptText = "{:n} cr/ton".format(bestGPT)
     
     return ".. {}, {}".format(gainText, gptText)
 
@@ -1312,6 +1312,8 @@ def run(results, cmdenv, tdb):
                     raise NoDataError(errText)
         
         routes = newRoutes
+        routes.sort(key=lambda route: route.score, reverse=True)
+
         if routes and goalSystem:
             # Promote the winning route to the top of the list
             # while leaving the remainder of the list intact
@@ -1325,20 +1327,13 @@ def run(results, cmdenv, tdb):
                 break
         
         if routePickPred:
-            pickedRoutes.extend(
-                route for route in routes if routePickPred(route)
-            )
+            pickedRoutes.extend(route for route in routes if routePickPred(route))
     
+    for route in routes: route.score /= len(route.hops)
+    routes.sort(key=lambda route: route.score, reverse=True)
     if cmdenv.loop or cmdenv.shorten:
         cmdenv.DEBUG0("Using {} picked routes", len(pickedRoutes))
         routes = pickedRoutes
-        # normalise the scores for fairness...
-        for route in routes:
-            cmdenv.DEBUG0(
-                "{} hops, {} score, {} gpt",
-                len(route.hops), route.score, route.gpt
-            )
-            route.score /= len(route.hops)
     
     if not routes:
         raise NoDataError(
@@ -1351,7 +1346,6 @@ def run(results, cmdenv, tdb):
         if caution:
             results.summary.exception += caution + "\n"
     
-    routes.sort()
     results.data = routes
     
     return results

@@ -304,7 +304,10 @@ class Station(object):
         system.stations.append(self)
     
     def name(self, detail=0):
-        return self.prettyName
+        if detail > 0:
+            return '%s/%s' % (self.system.prettyName, self.prettyName)
+        else:
+            return self.prettyName
     
     def fullName(self, detail=0):
         return '%s/%s' % (self.system.prettyName, self.prettyName)
@@ -1599,7 +1602,7 @@ class TradeDB(object):
         raise AmbiguityError(
             'System/Station', name,
             exactMatch + closeMatch + wordMatch + anyMatch,
-            key=lambda place: place.name()
+            key=lambda place: place.name(detail=1)
         )
     
     def lookupStation(self, name, system=None, exactOnly=False):
