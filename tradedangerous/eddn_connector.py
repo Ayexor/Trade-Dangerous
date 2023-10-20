@@ -109,13 +109,14 @@ def echoFile(filename, __str):
     f.write(__str + '\n')
     f.close()
 
-__lastCleanup = date("%Y-%m-%d")
-def cleanupDb(tdb : TradeDB):
+__lastCleanup = None
+def cleanupDb(tdb: TradeDB):
     global __lastCleanup
     # Only cleanup once a day
     if __lastCleanup and __lastCleanup == date("%Y-%m-%d"):
         return
     __lastCleanup = date("%Y-%m-%d")
+    echoLog("Cleanup DB.")
     stdFormat = '%Y-%m-%dT%H:%M:%S%z' # ISO 8601
     timestamp = datetime.utcnow() - timedelta(days = 14)
     command = "DELETE FROM StationItem WHERE modified < '%s'" % timestamp.strftime(stdFormat)
@@ -123,7 +124,8 @@ def cleanupDb(tdb : TradeDB):
     tdb.getDB().commit()
     tdb.query("VACUUM")
     tdb.getDB().commit()
-    tdb.load() # Reoad database
+    tdb.close() # Close to cleanup everything
+    tdb.load() # Reload database
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
