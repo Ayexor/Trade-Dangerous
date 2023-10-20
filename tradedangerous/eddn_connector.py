@@ -5,7 +5,7 @@ import zlib
 import zmq
 import simplejson
 import sys, os, time
-from datetime import datetime
+from datetime import datetime, timedelta
 import signal
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradedb import TradeDB, AmbiguityError
@@ -108,6 +108,22 @@ def echoFile(filename, __str):
     f = open(filename, 'a')
     f.write(__str + '\n')
     f.close()
+
+__lastCleanup = date("%Y-%m-%d")
+def cleanupDb(tdb : TradeDB):
+    global __lastCleanup
+    # Only cleanup once a day
+    if __lastCleanup and __lastCleanup == date("%Y-%m-%d"):
+        return
+    __lastCleanup = date("%Y-%m-%d")
+    stdFormat = '%Y-%m-%dT%H:%M:%S%z' # ISO 8601
+    timestamp = datetime.utcnow() - timedelta(days = 14)
+    command = "DELETE FROM StationItem WHERE modified < '%s'" % timestamp.strftime(stdFormat)
+    tdb.getDB().execute(command)
+    tdb.getDB().commit()
+    tdb.query("VACUUM")
+    tdb.getDB().commit()
+    tdb.load() # Reoad database
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
@@ -300,6 +316,7 @@ def main():
             echoLog('')
 
             while not exitGracefully:
+                cleanupDb(tdb) # Cleanup regularily
                 __message   = subscriber.recv()
 
                 if __message == False:
