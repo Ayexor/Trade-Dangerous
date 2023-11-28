@@ -1329,8 +1329,6 @@ def run(results, cmdenv, tdb):
         if routePickPred:
             pickedRoutes.extend(route for route in routes if routePickPred(route))
     
-    for route in routes: route.score /= len(route.hops)
-    routes.sort(key=lambda route: route.score, reverse=True)
     if cmdenv.loop or cmdenv.shorten:
         cmdenv.DEBUG0("Using {} picked routes", len(pickedRoutes))
         routes = pickedRoutes
@@ -1346,6 +1344,8 @@ def run(results, cmdenv, tdb):
         if caution:
             results.summary.exception += caution + "\n"
     
+    for route in routes: route.score /= len(route.hops)
+    routes.sort(key=lambda route: route.score, reverse=True)
     results.data = routes
     
     return results

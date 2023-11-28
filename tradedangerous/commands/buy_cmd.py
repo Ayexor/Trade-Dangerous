@@ -356,11 +356,11 @@ def run(results, cmdenv, tdb):
 def render(results, cmdenv, tdb):
     mode = results.summary.mode
     singleMode = len(results.summary.queries) == 1
-    maxStnLen = max_len(results.rows, key = lambda row: row.station.name())
+    maxStnLen = max_len(results.rows, key = lambda row: row.station.fullName())
     
     stnRowFmt = RowFormat()
     stnRowFmt.addColumn('Station', '<', maxStnLen,
-            key = lambda row: row.station.name())
+            key = lambda row: row.station.fullName())
     if not singleMode:
         maxItmLen = max_len(results.rows, key = lambda row: row.item.name(cmdenv.detail))
         stnRowFmt.addColumn(results.summary.mode, '<', maxItmLen,
