@@ -55,7 +55,7 @@ exitGracefully = False
  "  Start
 """
 def signal_handler(sig, frame):
-    print('SIGINT capturede, exiting gracefully.')
+    print('SIGINT/SIGTERM capturede, exiting gracefully.')
     global exitGracefully
     exitGracefully = True
 
@@ -129,6 +129,8 @@ def cleanupDb(tdb: TradeDB):
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    eddnConnectorQuiet=os.environ.get('EDDN_CONNECTOR_QUIET') or False
     echoLog('Starting EDDN Subscriber')
     echoLog('')
 
@@ -235,11 +237,13 @@ def main():
             system = tdb.lookupSystem(message['systemName'], exactOnly=True)
             station = tdb.lookupStation(message['stationName'], system, exactOnly=True)
             importCommodityToTradeDB(message, station)
-            echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
+            if not eddnConnectorQuiet:
+                echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
         except LookupError:
             #exportCommodityToPricesFile(message)
             #echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
-            echoLog('- Ignore prices for unknown station: ' + message['systemName'] + " / " + message['stationName'])
+            if not eddnConnectorQuiet:
+                echoLog('- Ignore prices for unknown station: ' + message['systemName'] + " / " + message['stationName'])
 
     def parseMessageDocked(message):
         # Docked message, containing information about the station
@@ -300,14 +304,14 @@ def main():
             station = tdb.lookupStation(name=stationName, system=system, exactOnly=True)
             statNew=True
         
-        if sysNew or statNew:
+        if (sysNew or statNew) and not eddnConnectorQuiet:
             echoLog("Created {}{} / {}{}.".format(
                 system.name(),
                 " (new)" if sysNew else "",
                 station.name(),
                 " (new)" if statNew else ""
                 ))
-        if sysUpdate or statUpdate:
+        if (sysUpdate or statUpdate) and not eddnConnectorQuiet:
             echoLog("Updated {} / {}.".format(system.name(), station.name()))
 
     global exitGracefully
