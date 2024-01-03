@@ -1147,7 +1147,7 @@ class ImportPlugin(plugins.ImportPluginBase):
         self.regenerate()
         
         # (Re)make the RareItem table.
-        cache.processImportFile(tdenv, tdb.getDB(), tdb.dataPath / Path('RareItem.csv'), 'RareItem')
+        #cache.processImportFile(tdenv, tdb.getDB(), tdb.dataPath / Path('RareItem.csv'), 'RareItem')
         
         if self.getOption("listings"):
             if self.downloadFile(LISTINGS, self.listingsPath) or self.getOption("force"):
