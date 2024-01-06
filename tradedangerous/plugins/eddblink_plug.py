@@ -75,7 +75,8 @@ class ImportPlugin(plugins.ImportPluginBase):
                         "(Useful for updating Vendor tables if they were skipped during a '-O clean' run.)",
         'fallback':     "Fallback to using EDDB.io if Tromador's mirror isn't working.",
         'progbar':      "Does nothing, only included for backwards compatibility.",
-        'solo':         "Don't download crowd-sourced market data. (Implies '-O skipvend', supercedes '-O all', '-O clean', '-O listings'.)"
+        'solo':         "Don't download crowd-sourced market data. (Implies '-O skipvend', supercedes '-O all', '-O clean', '-O listings'.)",
+        'skipfleet':    "When importing stations, skip fleet carriers."
     }
     
     def __init__(self, tdb, tdenv):
@@ -104,6 +105,7 @@ class ImportPlugin(plugins.ImportPluginBase):
                 "UpgradeVendor": False,
                 "Listings": False
             }
+        self.systemIdMap = {}
     
     def now(self):
         return datetime.datetime.now()
@@ -339,6 +341,17 @@ class ImportPlugin(plugins.ImportPluginBase):
         
         tdenv.NOTE("Finished processing Ships. End time = {}", self.now())
     
+    def addSystemIdMapEntry(self, new_id: int, old_id: int):
+        if self.systemIdMap.get(old_id) == None:
+            self.systemIdMap[old_id] = new_id
+
+    def mapSystemId(self, system_id: int):
+        """
+        Some system names occur multiple times with different IDs, but the names must be unique.
+        Translate the ID accordingly.
+        """
+        return self.systemIdMap.get(system_id) or system_id
+
     def importSystems(self):
         """
         Populate the System table using systems_populated.jsonl
@@ -365,6 +378,12 @@ class ImportPlugin(plugins.ImportPluginBase):
                 pos_y = system['y']
                 pos_z = system['z']
                 modified = datetime.datetime.utcfromtimestamp(system['updated_at']).strftime('%Y-%m-%d %H:%M:%S')
+
+                # Check if the system already has an id, and if so, add it to the system id map
+                id = self.execute("SELECT system_id FROM System WHERE name = ?", (tradedb.normalizedStr(name),)).fetchone()
+                if id:
+                    self.addSystemIdMapEntry(id[0], system_id)
+                    system_id = id[0]
                 
                 result = self.execute("SELECT modified FROM System WHERE system_id = ?", (system_id,)).fetchone()
                 if result:
@@ -373,18 +392,18 @@ class ImportPlugin(plugins.ImportPluginBase):
                         tdenv.DEBUG0("System '{}' has been updated: '{}' vs '{}'", name, modified, result[0])
                         tdenv.DEBUG1("Updating: {}, {}, {}, {}, {}, {}", system_id, name, pos_x, pos_y, pos_z, modified)
                         self.execute("""UPDATE System
-                                    SET name = ?,pos_x = ?,pos_y = ?,pos_z = ?,modified = ?
+                                    SET name = ?,pretty_name = ?,pos_x = ?,pos_y = ?,pos_z = ?,modified = ?
                                     WHERE system_id = ?""",
-                                    (name, pos_x, pos_y, pos_z, modified,
+                                    (tradedb.normalizedStr(name), name, pos_x, pos_y, pos_z, modified,
                                      system_id))
                         self.updated['System'] = True
                 else:
                     tdenv.DEBUG0("System '{}' has been added.", name)
                     tdenv.DEBUG1("Inserting: {}, {}, {}, {}, {}, {}", system_id, name, pos_x, pos_y, pos_z, modified)
                     self.execute("""INSERT INTO System
-                                ( system_id,name,pos_x,pos_y,pos_z,modified ) VALUES
-                                ( ?, ?, ?, ?, ?, ? ) """,
-                                (system_id, name, pos_x, pos_y, pos_z, modified))
+                                ( system_id,name,pretty_name,pos_x,pos_y,pos_z,modified ) VALUES
+                                ( ?, ?, ?, ?, ?, ?, ? ) """,
+                                (system_id, tradedb.normalizedStr(name), name, pos_x, pos_y, pos_z, modified))
                     self.updated['System'] = True
             while prog.value < prog.maxValue:
                 prog.increment(1, postfix = lambda value, goal: " " + str(round(value / total * 100)) + "%")
@@ -418,6 +437,12 @@ class ImportPlugin(plugins.ImportPluginBase):
                 pos_y = system['y']
                 pos_z = system['z']
                 modified = datetime.datetime.utcfromtimestamp(int(system['updated_at'])).strftime('%Y-%m-%d %H:%M:%S')
+
+                # Check if the system already has an id, and if so, add it to the system id map
+                id = self.execute("SELECT system_id FROM System WHERE name = ?", (tradedb.normalizedStr(name),)).fetchone()
+                if id:
+                    self.addSystemIdMapEntry(id[0], system_id)
+                    system_id = id[0]
                 
                 result = self.execute("SELECT modified FROM System WHERE system_id = ?", (system_id,)).fetchone()
                 if result:
@@ -426,18 +451,18 @@ class ImportPlugin(plugins.ImportPluginBase):
                         tdenv.DEBUG0("System '{}' has been updated: '{}' vs '{}'", name, modified, result[0])
                         tdenv.DEBUG1("Updating: {}, {}, {}, {}, {}, {}", system_id, name, pos_x, pos_y, pos_z, modified)
                         self.execute("""UPDATE System
-                                    SET name = ?,pos_x = ?,pos_y = ?,pos_z = ?,modified = ?
+                                    SET name = ?,pretty_name = ?,pos_x = ?,pos_y = ?,pos_z = ?,modified = ?
                                     WHERE system_id = ?""",
-                                    (name, pos_x, pos_y, pos_z, modified,
+                                    (tradedb.normalizedStr(name), name, pos_x, pos_y, pos_z, modified,
                                      system_id))
                         self.updated['System'] = True
                 else:
                     tdenv.DEBUG0("System '{}' has been added.", name)
                     tdenv.DEBUG1("Inserting: {}, {}, {}, {}, {}, {}", system_id, name, pos_x, pos_y, pos_z, modified)
                     self.execute("""INSERT INTO System
-                                ( system_id,name,pos_x,pos_y,pos_z,modified ) VALUES
+                                ( system_id,name,pretty_name,pos_x,pos_y,pos_z,modified ) VALUES
                                 ( ?, ?, ?, ?, ?, ? ) """,
-                                (system_id, name, pos_x, pos_y, pos_z, modified))
+                                (system_id, tradedb.normalizedStr(name), name, pos_x, pos_y, pos_z, modified))
                     self.updated['System'] = True
             while prog.value < prog.maxValue:
                 prog.increment(1, postfix = lambda value, goal: " " + str(round(value / total * 100)) + "%")
@@ -492,6 +517,9 @@ class ImportPlugin(plugins.ImportPluginBase):
         with open(str(self.dataPath / self.stationsPath), "r", encoding = "utf-8", errors = 'ignore') as f:
             total += (sum(bl.count("\n") for bl in self.blocks(f)))
         
+        stationsCreated = 0
+        stationsUpdated = 0
+        stationsSkipped = 0
         with open(str(self.dataPath / self.stationsPath), "r") as fh:
             prog = pbar.Progress(total, 50)
             for line in fh:
@@ -514,17 +542,21 @@ class ImportPlugin(plugins.ImportPluginBase):
                 repair = 'Y' if station['has_repair'] else 'N'
                 planetary = 'Y' if station['is_planetary'] else 'N'
                 type_id = station['type_id'] if station['type_id'] else 0
+
+                # Some systems occure with multiple IDs. Map accordingly
+                system_id = self.mapSystemId(system_id)
+
+                if self.getOption("skipfleet") and type_id == 24:
+                    stationsSkipped = stationsSkipped + 1
+                    continue
                 
                 systemList = self.execute("SELECT System.name FROM System WHERE System.system_id = ?", (system_id,)).fetchone()
                 if systemList:
                     system = systemList[0].upper()
                 else:
-                    system = "Unknown Space"
-                    self.execute("""INSERT INTO System
-                                ( system_id,name,pos_x,pos_y,pos_z,modified ) VALUES
-                                ( ?, ?, ?, ?, ?, ? ) """,
-                                (system_id, system, 0, 0, 0, modified))
-                    self.updated['System'] = True
+                    stationsSkipped = stationsSkipped + 1
+                    tdenv.WARN("Importing of station {} skipped (Unknown system id {}).", name, system_id)
+                    continue
                 
                 result = self.execute("SELECT modified FROM Station WHERE station_id = ?", (station_id,)).fetchone()
                 if result:
@@ -538,14 +570,15 @@ class ImportPlugin(plugins.ImportPluginBase):
                                     max_pad_size, market, shipyard, modified, outfitting,
                                     rearm, refuel, repair, planetary, type_id)
                         self.execute("""UPDATE Station
-                                    SET name = ?, system_id = ?, ls_from_star = ?, blackmarket = ?,
+                                    SET name = ?, pretty_name = ?, system_id = ?, ls_from_star = ?, blackmarket = ?,
                                     max_pad_size = ?, market = ?, shipyard = ?, modified = ?,
                                     outfitting = ?, rearm = ?, refuel = ?, repair = ?, planetary = ?, type_id = ?
                                     WHERE station_id = ?""",
-                                    (name, system_id, ls_from_star, blackmarket,
+                                    (tradedb.normalizedStr(name), name, system_id, ls_from_star, blackmarket,
                                      max_pad_size, market, shipyard, modified,
                                      outfitting, rearm, refuel, repair, planetary, type_id,
                                      station_id))
+                        stationsUpdated = stationsUpdated + 1
                         self.updated['Station'] = True
                 else:
                     tdenv.DEBUG0("{}/{} has been added:", system , name)
@@ -555,15 +588,16 @@ class ImportPlugin(plugins.ImportPluginBase):
                         max_pad_size, market, shipyard, modified, outfitting,
                         rearm, refuel, repair, planetary, type_id)
                     self.execute("""INSERT INTO Station (
-                                station_id,name,system_id,ls_from_star,
+                                station_id,name,pretty_name,system_id,ls_from_star,
                                 blackmarket,max_pad_size,market,shipyard,
                                 modified,outfitting,rearm,refuel,
                                 repair,planetary,type_id ) VALUES
-                                ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) """,
-                                (station_id, name, system_id, ls_from_star,
+                                ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) """,
+                                (station_id, tradedb.normalizedStr(name), name, system_id, ls_from_star,
                                  blackmarket, max_pad_size, market, shipyard,
                                  modified, outfitting, rearm, refuel,
                                  repair, planetary, type_id))
+                    stationsCreated = stationsCreated + 1
                     self.updated['Station'] = True
                 
                 # Import shipyards into ShipVendors if shipvend is set.
@@ -641,6 +675,8 @@ class ImportPlugin(plugins.ImportPluginBase):
                 prog.increment(1, postfix = lambda value, goal: " " + str(round(value / total * 100)) + "%")
             prog.clear()
         
+        tdenv.NOTE("Imported {} stations ({} created, {} updated, {} skipped)",
+                   stationsCreated + stationsUpdated, stationsCreated, stationsUpdated, stationsSkipped)
         tdenv.NOTE("Finished processing Stations. End time = {}", self.now())
     
     def importCommodities(self):
@@ -750,15 +786,15 @@ class ImportPlugin(plugins.ImportPluginBase):
             
             try:
                 self.execute("""INSERT INTO Item
-                            (item_id,name,category_id,avg_price,fdev_id) VALUES
-                            ( ?, ?, ?, ?, ? )""",
-                            (item_id, name, category_id, avg_price, fdev_id))
+                            (item_id,name,pretty_name,category_id,avg_price,fdev_id) VALUES
+                            ( ?, ?, ?, ?, ?, ? )""",
+                            (item_id, tradedb.normalizedStr(name), name, category_id, avg_price, fdev_id))
             except sqlite3.IntegrityError:
                 try:
                     self.execute("""UPDATE Item
-                                SET name = ?,category_id = ?,avg_price = ?,fdev_id = ?
+                                SET name = ?, pretty_name = ?,category_id = ?,avg_price = ?,fdev_id = ?
                                 WHERE item_id = ?""",
-                                (name, category_id, avg_price, fdev_id, item_id))
+                                (tradedb.normalizedStr(name), name, category_id, avg_price, fdev_id, item_id))
                 except sqlite3.IntegrityError:
                     tdenv.DEBUG0("Unable to insert or update: {}, {}, {}, {}, {}", item_id, name, category_id, avg_price, fdev_id)
         
@@ -1111,7 +1147,7 @@ class ImportPlugin(plugins.ImportPluginBase):
         self.regenerate()
         
         # (Re)make the RareItem table.
-        cache.processImportFile(tdenv, tdb.getDB(), tdb.dataPath / Path('RareItem.csv'), 'RareItem')
+        #cache.processImportFile(tdenv, tdb.getDB(), tdb.dataPath / Path('RareItem.csv'), 'RareItem')
         
         if self.getOption("listings"):
             if self.downloadFile(LISTINGS, self.listingsPath) or self.getOption("force"):

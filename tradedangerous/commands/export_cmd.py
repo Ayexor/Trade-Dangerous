@@ -4,6 +4,7 @@ from ..csvexport import exportTableToFile
 from .parsing import *
 from .exceptions import CommandLineError
 from pathlib import Path
+from .. import cache
 
 import sqlite3
 
@@ -121,5 +122,9 @@ def run(results, cmdenv, tdb):
             # delete file if emtpy
             filePath.unlink()
             cmdenv.DEBUG0("Delete empty file {file}'".format(file=filePath))
+    
+    # Export prices
+    cmdenv.NOTE("Export prices file")
+    cache.regeneratePricesFile(tdb, cmdenv)
     
     return None

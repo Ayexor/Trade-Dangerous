@@ -636,9 +636,9 @@ class TradeDB(object):
             if not os.path.exists(targ):
                 shutil.copyfile(src, targ)
         
-        copy_if_not_exists((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
-        copy_if_not_exists((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
-        copy_if_not_exists((self.templatePath / Path("TradeDangerous.sql")), (self.dataPath / Path("TradeDangerous.sql")))
+        #copy_if_not_exists((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
+        #copy_if_not_exists((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
+        #copy_if_not_exists((self.templatePath / Path("TradeDangerous.sql")), (self.dataPath / Path("TradeDangerous.sql")))
         
         self.dbPath = Path(tdenv.dbFilename or dataPath / TradeDB.defaultDB)
         self.sqlPath = dataPath / Path(tdenv.sqlFilename or TradeDB.defaultSQL)
