@@ -634,7 +634,7 @@ class TradeDB(object):
 
         def copy_if_not_exists(src, targ):
             if not os.path.exists(targ):
-                shutil.copyfile(src, targ)
+                shutil.copy2(src, targ)
         
         copy_if_not_exists((self.templatePath / Path("Added.csv")), (self.csvPath / Path("Added.csv")))
         copy_if_not_exists((self.templatePath / Path("Category.csv")), (self.csvPath / Path("Category.csv")))
