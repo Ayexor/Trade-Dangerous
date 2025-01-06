@@ -234,9 +234,6 @@ CREATE TABLE StationItem
   FOREIGN KEY (item_id) REFERENCES Item(item_id)
     ON UPDATE CASCADE ON DELETE CASCADE
  );
- CREATE INDEX si_mod_stn_itm ON StationItem(modified, station_id, item_id);
- CREATE INDEX si_itm_dmdpr ON StationItem(item_id, demand_price) WHERE demand_price > 0;
- CREATE INDEX si_itm_suppr ON StationItem(item_id, supply_price) WHERE supply_price > 0;
 
 CREATE VIEW StationBuying AS
  SELECT  station_id,

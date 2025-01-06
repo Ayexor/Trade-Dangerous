@@ -563,44 +563,42 @@ class TradeCalc(object):
         
         whereClause = " AND ".join(wheres) or "1"
         
-        lastStnID, stnAppend = 0, None
-        dmdCount, supCount = 0, 0
+        now = int(time.time())
+        tdenv.DEBUG1("TradeCalc loading StationItem values")
+
+        # Load demand
         stmt = """
                 SELECT  station_id, item_id,
                         strftime('%s', modified),
-                        demand_price, demand_units, demand_level,
-                        supply_price, supply_units, supply_level
+                        demand_price, demand_units
                   FROM  StationItem
-                 WHERE  {where}
-        """.format(where = whereClause)
-        tdenv.DEBUG1("TradeCalc loading StationItem values")
+                 WHERE  {where} and demand_price > 0 and demand_units > {demand_units}
+        """.format(where = whereClause, demand_units = minDemand)
         tdenv.DEBUG2("sql: {}, binds: {}", stmt, binds)
         cur = db.execute(stmt, binds)
-        now = int(time.time())
-        for (stnID, itmID,
-                timestamp,
-                dmdCr, dmdUnits, dmdLevel,
-                supCr, supUnits, supLevel) in cur:
-            if stnID != lastStnID:
-                dmdAppend = demand[stnID].append
-                supAppend = supply[stnID].append
-                lastStnID = stnID
-            try:
-                ageS = now - int(timestamp)
-            except TypeError:
-                raise BadTimestampError(
-                    self.tdb,
-                    stnID, itmID, timestamp
-                )
-            if dmdCr > 0:
-                if dmdUnits >= minDemand or dmdUnits == -1:
-                    dmdAppend((itmID, dmdCr, dmdUnits, dmdLevel, ageS))
-                    dmdCount += 1
-            if supCr > 0 and supUnits >= minSupply:
-                supAppend((itmID, supCr, supUnits, supLevel, ageS))
-                supCount += 1
+        buyCount = 0
+        for (stnID, itmID, timestamp, dmdCr, dmdUnits) in cur:
+            buyCount += 1
+            ageS = now - int(timestamp)
+            demand[stnID].append((itmID, dmdCr, dmdUnits, 0, ageS))
         
-        tdenv.DEBUG0("Loaded {} buys, {} sells".format(dmdCount, supCount))
+        # Load supply
+        stmt = """
+                SELECT  station_id, item_id,
+                        strftime('%s', modified),
+                        supply_price, supply_units
+                  FROM  StationItem
+                 WHERE  {where} and supply_price > 0 and supply_units > {supply_units}
+        """.format(where = whereClause, supply_units = minSupply)
+        tdenv.DEBUG2("sql: {}, binds: {}", stmt, binds)
+        cur = db.execute(stmt, binds)
+        sellCount = 0
+        for (stnID, itmID, timestamp, supCr, supUnits) in cur:
+            sellCount += 1
+            ageS = now - int(timestamp)
+            supply[stnID].append((itmID, supCr, supUnits, 0, ageS))
+        
+        tdenv.DEBUG0("Loaded {} buys, {} sells".format(buyCount, sellCount))
     
     def bruteForceFit(self, items, credits, capacity, maxUnits):
         """
