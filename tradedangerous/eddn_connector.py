@@ -121,10 +121,12 @@ def cleanupDb(tdb: TradeDB):
     timestamp = datetime.utcnow() - timedelta(days = 14)
     command = "DELETE FROM StationItem WHERE modified < '%s'" % timestamp.strftime(stdFormat)
     tdb.getDB().execute(command)
+    command = "DELETE FROM Station WHERE station_id NOT IN ( SELECT DISTINCT station_id FROM StationItem) "
+    tdb.getDB().execute(command)
     tdb.getDB().commit()
     tdb.query("VACUUM")
     tdb.getDB().commit()
-    tdb.close() # Close to cleanup everything
+    tdb.close() # Close to cleanup cached data in python part of the module
     tdb.load() # Reload database
 
 def main():
