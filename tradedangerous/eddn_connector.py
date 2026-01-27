@@ -5,7 +5,7 @@ import zlib
 import zmq
 import simplejson
 import sys, os, time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import signal
 from tradedangerous.tradeenv import TradeEnv
 from tradedangerous.tradedb import TradeDB, AmbiguityError
@@ -50,6 +50,7 @@ __excludedSoftwares     = [
  " Global variables
 """
 exitGracefully = False
+SQL_TS = "%Y-%m-%d %H:%M:%S"
 
 """
  "  Start
@@ -60,11 +61,11 @@ def signal_handler(sig, frame):
     exitGracefully = True
 
 def date(__format):
-    d = datetime.utcnow()
+    d = datetime.now(UTC)
     return d.strftime(__format)
 
 def getTimeStamp(string):
-    stdFormat = '%Y-%m-%dT%H:%M:%S%z' # ISO 8601
+    stdFormat = SQL_TS
     for fmt in (
             '%Y-%m-%dT%H:%M:%SZ',
             '%Y-%m-%dT%H:%M:%S.%fZ',
@@ -117,17 +118,31 @@ def cleanupDb(tdb: TradeDB):
         return
     __lastCleanup = date("%Y-%m-%d")
     echoLog("Cleanup DB.")
-    stdFormat = '%Y-%m-%dT%H:%M:%S%z' # ISO 8601
-    timestamp = datetime.utcnow() - timedelta(days = 14)
+    stdFormat = SQL_TS
+    timestamp = datetime.now(UTC) - timedelta(days = 14)
     command = "DELETE FROM StationItem WHERE modified < '%s'" % timestamp.strftime(stdFormat)
-    tdb.getDB().execute(command)
-    command = "DELETE FROM Station WHERE station_id NOT IN ( SELECT DISTINCT station_id FROM StationItem) "
-    tdb.getDB().execute(command)
+    cur = tdb.getDB().execute(command)
+    deleted_prices = cur.rowcount
+    command = """DELETE FROM Station
+                WHERE station_id NOT IN (
+                    SELECT DISTINCT station_id FROM StationItem
+                )
+                AND modified < DATETIME('now', '-2 days');
+                """
+    cur = tdb.getDB().execute(command)
+    deleted_stations = cur.rowcount
     tdb.getDB().commit()
     tdb.query("VACUUM")
     tdb.getDB().commit()
     tdb.close() # Close to cleanup cached data in python part of the module
     tdb.load() # Reload database
+
+    echoLog(
+        f"Cleanup done: "
+        f"deleted {deleted_stations} stale stations, "
+        f"{deleted_prices} outdated prices."
+    )
+
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
@@ -160,42 +175,6 @@ def main():
     def parseMessageCommodity(message):
         if len(message['commodities']) <= 0:
             return
-
-        def exportCommodityToPricesFile(message):
-            os.makedirs(__reportDir, exist_ok = True)
-            filename = __reportDir + "/eddnReport_" + date('%Y-%m-%d-{:05d}.prices')
-            cnt = 1
-            while os.path.isfile(filename.format(cnt)):
-                cnt = cnt + 1
-            filename = filename.format(cnt)
-            timestamp = getTimeStamp(message['timestamp'])
-            
-            echoFile(filename, "#! trade import -")
-            echoFile(filename, "# Created by EDDN client")
-            echoFile(filename, "# Received on  " + timestamp)
-            echoFile(filename, "")
-            echoFile(filename, "#    <item name>             <sellCR> <buyCR>   <demand>   <stock>  <timestamp>")
-            echoFile(filename, "@ " + message['systemName'] + " / " + message['stationName'])
-            
-            for commodity in message['commodities']:
-                name = ''.join(e.lower() for e in commodity['name'] if e.isalnum()).lower()
-                demandBracket=commodity['demandBracket']
-                stockBracket=commodity['stockBracket']
-                if demandBracket == '':
-                    demandBracket=0
-                if stockBracket == '':
-                    stockBracket=0
-                echoFile(filename, 
-                    f"      {name:<23}"
-                    f" {int(commodity['sellPrice']):7d}"
-                    f" {int(commodity['buyPrice']):7d}"
-                    f" {int(commodity['demand']) if demandBracket else '' :9}"
-                    f"{demandbracketmap[demandBracket]:1}"
-                    f" {int(commodity['stock']) if stockBracket else '':8}"
-                    f"{stockbracketmap[stockBracket]:1}"
-                    f"  {timestamp}"
-                    )
-            echoFile(filename, '')
 
         def importCommodityToTradeDB(message, station):
             items=[]
@@ -233,6 +212,14 @@ def main():
                         ?, ?, ?
                     )
                 """, items)
+            tdb.getDB().execute("""
+                UPDATE Station
+                SET modified = ?
+                WHERE station_id = ?
+                AND (modified IS NULL OR modified < ?)
+                """,
+                (timestamp, station.ID, timestamp)
+            )
             tdb.getDB().commit()
         
         try:
@@ -242,8 +229,6 @@ def main():
             if not eddnConnectorQuiet:
                 echoLog('- Updated prices for: ' + message['systemName'] + " / " + message['stationName'])
         except LookupError:
-            #exportCommodityToPricesFile(message)
-            #echoLog('- Exported prices for: ' + message['systemName'] + " / " + message['stationName'])
             if not eddnConnectorQuiet:
                 echoLog('- Ignore prices for unknown station: ' + message['systemName'] + " / " + message['stationName'])
 
