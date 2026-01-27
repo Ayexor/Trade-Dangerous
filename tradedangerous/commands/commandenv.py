@@ -71,14 +71,18 @@ class CommandEnv(TradeEnv):
         """
         self.tdb = tdb
         
-        self.checkMFD()
-        self.checkFromToNear()
-        self.checkAvoids()
-        self.checkVias()
-        self.checkPadSize()
-        self.checkPlanetary()
-        self.checkFleet()
-        self.checkOdyssey()
+        try:
+            self.checkMFD()
+            self.checkFromToNear()
+            self.checkAvoids()
+            self.checkVias()
+            self.checkPadSize()
+            self.checkPlanetary()
+            self.checkFleet()
+            self.checkOdyssey()
+        except LookupError as e:
+            print(e)
+            return None;
         
         results = CommandResults(self)
         return self._cmd.run(results, self, tdb)
